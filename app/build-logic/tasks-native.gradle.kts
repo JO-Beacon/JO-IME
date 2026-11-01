@@ -91,8 +91,8 @@ fun downloadWithMirrors(urls: List<String>, target: File, workDir: File, desc: S
 }
 
 fun githubUrls(url: String): List<String> = buildList {
-    ghMirrors.forEach { add("${it.trimEnd('/')}/$url") }
-    add(url) // 官方源兜底
+    add(url) // 官方源优先
+    ghMirrors.forEach { add("${it.trimEnd('/')}/$url") } // 拉不到时走镜像
 }
 
 val downloadOnnx by tasks.registering {

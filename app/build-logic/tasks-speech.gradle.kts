@@ -15,14 +15,24 @@ val prepareSpeechRuntime = tasks.register("prepareSpeechRuntime") {
                 .joinToString("") { "%02x".format(it) }
             if (file.isFile && digest() == sha) return
             file.parentFile.mkdirs()
-            val conn = java.net.URL(url).openConnection().apply {
-                connectTimeout = 30_000; readTimeout = 300_000
+            var lastError: Exception? = null
+            for (candidate in listOf(url, "https://gh-proxy.org/$url")) {
+                try {
+                    val conn = java.net.URL(candidate).openConnection().apply {
+                        connectTimeout = 30_000; readTimeout = 300_000
+                    }
+                    conn.getInputStream().use { input -> file.outputStream().use { input.copyTo(it) } }
+                    check(digest() == sha) { "Speech dependency checksum mismatch: ${file.name}" }
+                    return
+                } catch (e: Exception) {
+                    lastError = e
+                    file.delete()
+                }
             }
-            conn.getInputStream().use { input -> file.outputStream().use { input.copyTo(it) } }
-            check(digest() == sha) { "Speech dependency checksum mismatch: ${file.name}" }
+            throw lastError ?: IllegalStateException("download failed: $url")
         }
         val source = layout.buildDirectory.file("speech-runtime/original.aar").get().asFile
-        fetch("https://gh-proxy.org/https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-static-link-onnxruntime-1.13.8.aar",
+        fetch("https://github.com/k2-fsa/sherpa-onnx/releases/download/v1.13.8/sherpa-onnx-static-link-onnxruntime-1.13.8.aar",
             source, "b22c3fc1b6a45666d28892bb2f7694beeb77a8362d7ebd77c1a5431ec9435471")
         ZipInputStream(source.inputStream()).use { input ->
             ZipOutputStream(speechAar.get().asFile.outputStream()).use { output ->
@@ -38,7 +48,7 @@ val prepareSpeechRuntime = tasks.register("prepareSpeechRuntime") {
                 }
             }
         }
-        fetch("https://gh-proxy.org/https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
+        fetch("https://github.com/k2-fsa/sherpa-onnx/releases/download/asr-models/silero_vad.onnx",
             File(speechAssets.get().asFile, "speech/silero_vad.onnx"),
             "9e2449e1087496d8d4caba907f23e0bd3f78d91fa552479bb9c23ac09cbb1fd6")
     }

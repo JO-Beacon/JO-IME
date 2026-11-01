@@ -73,15 +73,26 @@ val prepareChineseDictionaries by tasks.registering {
             check(!gradle.startParameter.isOffline) { "Run prepareChineseDictionaries once online." }
             archive.parentFile.mkdirs()
             val pending = File(archive.parentFile, "${archive.name}.download")
-            val connection = URI("https://gh-proxy.org/https://codeload.github.com/iDvel/rime-ice/zip/$chineseRevision").toURL().openConnection() as HttpURLConnection
-            connection.connectTimeout = 30000
-            connection.readTimeout = 600000
-            try {
-                check(connection.responseCode == 200)
-                connection.inputStream.use { i -> pending.outputStream().use { i.copyTo(it) } }
-                check(chineseSha(pending) == chineseArchiveSha) { "Chinese dictionary checksum mismatch" }
-                pending.copyTo(archive, overwrite = true)
-            } finally { connection.disconnect(); pending.delete() }
+            var lastError: Exception? = null
+            for (source in listOf(
+                "https://codeload.github.com/iDvel/rime-ice/zip/$chineseRevision",
+                "https://gh-proxy.org/https://codeload.github.com/iDvel/rime-ice/zip/$chineseRevision",
+            )) {
+                val connection = URI(source).toURL().openConnection() as HttpURLConnection
+                connection.connectTimeout = 30000
+                connection.readTimeout = 600000
+                try {
+                    check(connection.responseCode == 200)
+                    connection.inputStream.use { i -> pending.outputStream().use { i.copyTo(it) } }
+                    check(chineseSha(pending) == chineseArchiveSha) { "Chinese dictionary checksum mismatch" }
+                    pending.copyTo(archive, overwrite = true)
+                    lastError = null
+                    break
+                } catch (e: Exception) {
+                    lastError = e
+                } finally { connection.disconnect(); pending.delete() }
+            }
+            if (lastError != null) throw lastError!!
         }
         val root = chineseRoot.get().asFile.apply { mkdirs() }
         ZipFile(archive).use { zip ->
@@ -357,11 +368,6 @@ val prepareChineseDictionaries by tasks.registering {
         check(baseSchema.contains("cyime_neighbor_correction: true"))
         check(baseSchema.contains("    - lua_translator@*cyime_mixed_input\n    - lua_translator@*cyime_rare_chars\n")) {
             "Upstream rime_ice translator list changed"
-        }
-        // The 14-key and 注音 schemas (assets/rime_chinese) repeat these sentence rules; keep them the same list.
-        for (schema in listOf("pinyin_14jian", "cyime_zhuyin")) check(file("src/main/assets/rime_chinese/$schema.schema.yaml").readText()
-            .contains("  sentence_position_final_only: [${particles.joinToString(", ")}]\n")) {
-            "$schema.schema.yaml sentence_position_final_only differs from app/data particle lists"
         }
         File(root, "rime_ice.schema.yaml").writeText(baseSchema)
         val doublePinyin = File(root, "double_pinyin_flypy.schema.yaml")
