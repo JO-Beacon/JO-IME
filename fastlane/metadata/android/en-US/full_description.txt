@@ -1,0 +1,12 @@
+JO-IME is an Android input method built on the Rime engine. It does two things: 26-key full pinyin for Chinese, and English.
+
+Features:
+* 26-key full pinyin - powered by the rime-ice dictionary, ready out of the box
+* Candidates and prediction - pinyin/gloss candidate comments, prediction, traditional output, rare characters, date and time
+* Handwriting and voice - Chinese, English and math formula handwriting; on-device speech recognition, or plug in your own online endpoint
+* Captions - live captions for the people around you, with speaker separation
+* Clipboard - history, verification-code detection, and sync with your computer
+* Appearance - color themes, glass effect, key sounds and vibration, key font size
+* Few settings - only Chinese and English, and as few settings as possible
+
+Requires Android 9.0 or later. Packages are ARM64 only.

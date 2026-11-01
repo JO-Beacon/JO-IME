@@ -1,0 +1,117 @@
+NOTICE for CyIME
+
+CyIME is an Android input method forked from Xime, maintained and developed by Cyletix.
+CyIME source: https://github.com/Cyletix/CyIME
+Upstream Xime by Kor1 (kingzcheung) and contributors: https://github.com/ximeiorg/Xime
+The application is licensed under GNU GPL version 3; see licenses/CyIME-GPL-3.0.txt.
+Original copyright and third-party license notices are retained.
+
+This application uses third-party libraries and code:
+
+================================================================================
+ONNX Runtime
+================================================================================
+
+Source: https://github.com/microsoft/onnxruntime
+License: MIT License
+
+Used for neural network inference in association prediction, punctuation, handwriting and document OCR.
+
+================================================================================
+Librime
+================================================================================
+
+Source: https://github.com/rime/librime
+License: BSD 3-Clause License
+
+Used as the core input method engine.
+
+================================================================================
+AndroidX CameraX 1.6.2
+================================================================================
+
+Source: https://developer.android.com/jetpack/androidx/releases/camera#1.6.2
+Source tree: https://android.googlesource.com/platform/frameworks/support/+/androidx-main/camera/
+Artifacts: camera-camera2, camera-lifecycle, camera-view; transitive CameraX
+artifacts include camera-core, camera-video and camera-camera2-pipe.
+License: Apache-2.0. camera-core also declares BSD-3-Clause for native code.
+Original artifact license texts: licenses/camerax/*-1.6.2.txt.
+LibYuv notice: licenses/camerax/libyuv-BSD-3-Clause.txt.
+LibYuv source/license: https://chromium.googlesource.com/libyuv/libyuv/+/refs/heads/main/LICENSE
+
+Used, without source modification, for the in-app pairing QR camera preview
+and image analysis. QR decoding reuses the application's existing ZXing dependency.
+
+================================================================================
+Offline document OCR
+================================================================================
+
+PP-OCRv5 mobile models, PaddlePaddle; ONNX distribution by RapidAI/RapidOCR v3.9.2.
+Apache-2.0. OpenCV 4.12.0 Android, Apache-2.0, with ONNX Runtime 1.28.0, MIT.
+Source, model hashes, adaptations and full licenses: licenses/ocr/PP-OCR-NOTICE.txt.
+Recognition is offline; models are bundled and never require Play Services or first-use downloads.
+
+================================================================================
+Offline speech recognition runtime and models
+================================================================================
+
+sherpa-onnx 1.13.8 (k2-fsa), Apache-2.0: https://github.com/k2-fsa/sherpa-onnx
+Full license text: licenses/sherpa-onnx-Apache-2.0.txt. Used for on-device speech
+recognition, voice activity detection and speaker embeddings (caption mode).
+Silero VAD (snakers4/silero-vad), MIT: licenses/silero-vad-MIT.txt.
+
+Models are downloaded on first use, or bundled in the offline edition only:
+- Paraformer streaming zh-en (Alibaba DAMO / FunASR), Apache-2.0; sherpa-onnx export.
+- SenseVoice Small (FunAudioLLM), released under the FunASR model license
+  (attribution and model-name retention required); sherpa-onnx int8 export.
+  https://github.com/FunAudioLLM/SenseVoice
+- Zipformer streaming zh (k2-fsa), Apache-2.0.
+- 3D-Speaker CAM++ speaker embedding zh-cn 16k-common (Alibaba 3D-Speaker), Apache-2.0;
+  ONNX export published by sherpa-onnx. Used only to tell speakers apart in caption mode;
+  voiceprints stay on the device.
+
+================================================================================
+English glide typing word-pair statistics
+================================================================================
+
+english_bigrams.txt and english_contractions.txt hold word and word-pair frequencies
+derived (counts only, no text) by tools/glide_lab/build_english_bigrams.py from:
+- Peter Norvig, Natural Language Corpus Data (count_1w.txt, count_2w.txt), MIT License,
+  Copyright (c) 2010-2017 Peter Norvig: https://github.com/norvig/pytudes
+- Cornell Movie-Dialogs Corpus, Cristian Danescu-Niculescu-Mizil and Lillian Lee (2011):
+  https://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html
+
+================================================================================
+Spanish word list
+================================================================================
+
+spanish/words.txt is the Spanish completion word list (one word per line, most frequent first),
+built by tools/spanish/build_words.py:
+- Word frequencies: Hermit Dave, FrequencyWords (content/2018/es/es_50k.txt, from OpenSubtitles 2018),
+  commit 525f9b560de45753a5ea01069454e72e9aa541c6. Code MIT; word lists CC-BY-SA-4.0.
+  https://github.com/hermitdave/FrequencyWords
+- Spelling filter only (not shipped): LibreOffice Spanish spelling dictionary as packaged in
+  the npm module dictionary-es 4.0.0 (GPL-3.0 OR LGPL-3.0 OR MPL-1.1), checked with spylls.
+  https://github.com/wooorm/dictionaries
+
+================================================================================
+Handwriting candidate readings
+================================================================================
+
+handwriting/hanzi_pinyin.tsv (toned pinyin shown beside Chinese handwriting candidates)
+is generated by tools/handwriting_training/build_hanzi_pinyin.py from pinyin-data
+by mozillazg, revision 9d05c9e29cb6a7e5c79f2f5279f5c1014246a19a (pinyin.txt and
+kHanyuPinlu.txt), MIT License, Copyright (c) 2016 mozillazg:
+https://github.com/mozillazg/pinyin-data
+Its data comes from the Unicode Unihan database (Unicode License) and other sources
+listed in that repository.
+
+================================================================================
+Chinese association word-completion marks
+================================================================================
+
+association/lccc-base-v1.completions.gz marks which rows of the bundled association table
+finish the last word instead of starting the next one (bits only, no word list). It is
+generated by tools/ime_lab/ngram/tag_word_completions.py using the word list of
+jieba 0.42.1 (jieba/dict.txt), MIT License, Copyright (c) 2013 Sun Junyi:
+https://github.com/fxsjy/jieba

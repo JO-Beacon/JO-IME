@@ -1,0 +1,124 @@
+package com.kingzcheung.xime.ui.settings
+
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
+import com.kingzcheung.xime.ui.theme.*
+import com.kingzcheung.xime.util.FileLogger
+
+internal fun changeAppearance(context: Context, onChanged: () -> Unit, change: () -> Unit) {
+    try { change(); onChanged() } catch (e: RuntimeException) {
+        FileLogger.e("Appearance", "Appearance change failed", e)
+        Toast.makeText(context, "图标切换失败，未保存此次选择，请重试", Toast.LENGTH_LONG).show()
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun IconSettingsContent(onBack: () -> Unit, onChanged: () -> Unit) {
+    val context = LocalContext.current
+    Scaffold(containerColor = MaterialTheme.colorScheme.surface, topBar = {
+        TopAppBar(title = { Text("图标设置") }, navigationIcon = {
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "返回") }
+        }, colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface))
+    }) { padding ->
+        Column(Modifier.fillMaxSize().padding(padding).settingsVerticalScroll().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            // 「跟随主题色」打开时底板和样式不起作用，那两组就不显示。
+            if (!IconAppearance.followTheme) SettingsSection(title = "桌面图标底板") {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        listOf(true, false).forEach { framed ->
+                            val selected = IconAppearance.framed == framed
+                            val shape = RoundedCornerShape(12.dp)
+                            Column(Modifier.weight(1f).testTag("icon-frame-$framed")
+                                .semantics { this.selected = selected }
+                                .background(MaterialTheme.colorScheme.surfaceContainerHigh, shape)
+                                .border(if (selected) 2.dp else 1.dp,
+                                    MaterialTheme.colorScheme.primary.copy(alpha = if (selected) 1f else .25f), shape)
+                                .clickable { changeAppearance(context, onChanged) { IconAppearance.setFramed(context, framed) } }
+                                .padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                LauncherIconPreview(IconAppearance.effective, framed, Modifier.size(64.dp))
+                                Text(if (framed) "带底板" else "无底板", style = MaterialTheme.typography.labelLarge)
+                            }
+                        }
+                    }
+                    Text("带底板与系统桌面图标大小、外框统一；无底板突出图案。此选项只影响桌面图标，部分桌面仍会自动加底。",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            SettingsSection(title = "图标联动") {
+                Column(Modifier.padding(16.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("同步图标与视觉样式", style = MaterialTheme.typography.bodyLarge)
+                            Text(if (IconAppearance.linked) "任一处选择，键盘和图标一起变化" else "图标与键盘分别设置",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = IconAppearance.linked, onCheckedChange = {
+                            changeAppearance(context, onChanged) { IconAppearance.setLinked(context, it) }
+                        }, modifier = Modifier.testTag("icon-link"))
+                    }
+                    Text("桌面图标使用所选样式；键盘左上角使用简洁线稿，颜色跟随键盘主题。桌面可能需要片刻刷新。",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.height(12.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("桌面图标跟随主题色", style = MaterialTheme.typography.bodyLarge)
+                            Text("换键盘主题时，桌面图标换成同色的带底板折面图标",
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(checked = IconAppearance.followTheme, onCheckedChange = {
+                            changeAppearance(context, onChanged) { IconAppearance.setFollowTheme(context, it) }
+                        }, modifier = Modifier.testTag("icon-follow-theme"))
+                    }
+                    Text("三星等桌面每换一次图标，会先移除再重新添加，图标可能跑到应用列表最后，需要重新拖回原位。",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            if (!IconAppearance.followTheme) SettingsSection(title = "图标样式") {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    VisualStyle.entries.filter { it != VisualStyle.ORIGINAL }.chunked(2).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            row.forEach { style ->
+                                val selected = IconAppearance.effective == style
+                                val palette = MaterialTheme.colorScheme
+                                val shape = RoundedCornerShape(12.dp)
+                                Column(Modifier.weight(1f).testTag("icon-style-${style.id}").semantics { this.selected = selected }
+                                    .background(palette.surfaceContainerHigh, shape)
+                                    .border(if (selected) 2.dp else 1.dp, palette.primary.copy(alpha = if (selected) 1f else .25f), shape)
+                                    .clickable { changeAppearance(context, onChanged) { IconAppearance.setIconStyle(context, style) } }
+                                    .padding(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    LauncherIconPreview(style, IconAppearance.framed, Modifier.size(72.dp))
+                                    Text(style.title + if (selected) " · 已选" else "", color = palette.onSurface,
+                                        style = MaterialTheme.typography.labelLarge)
+                                }
+                            }
+                        }
+                    }
+                    TextButton(onClick = { changeAppearance(context, onChanged) { IconAppearance.setIconStyle(context, VisualStyle.ORIGINAL) } },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).testTag("icon-style-original")) {
+                        Text(if (IconAppearance.effective == VisualStyle.ORIGINAL) "原有图标 · 已选" else "恢复原有图标")
+                    }
+                    Text("绑定开启时，恢复原有图标也会恢复原有外观。关闭绑定后可单独恢复图标。",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+        }
+    }
+}

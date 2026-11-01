@@ -1,0 +1,138 @@
+package com.kingzcheung.xime.ui
+
+import android.app.Application
+import androidx.test.core.app.ApplicationProvider
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.kingzcheung.xime.viewmodel.KeyboardViewModel
+import com.kingzcheung.xime.ui.keyboard.KeyboardLayoutState
+import com.kingzcheung.xime.ui.keyboard.KeyboardDispatchAction
+import com.kingzcheung.xime.keyboard.KeyboardPage
+import com.kingzcheung.xime.keyboard.MainType
+import com.kingzcheung.xime.keyboard.PanelType
+import com.kingzcheung.xime.keyboard.OverlayRoute
+import org.junit.Assert.*
+import org.junit.Test
+import org.junit.runner.RunWith
+
+@RunWith(AndroidJUnit4::class)
+class HandwritingToggleTest {
+    private fun model() = KeyboardViewModel(ApplicationProvider.getApplicationContext<Application>())
+
+    @Test fun handwritingReturnsToExactTypingLayout() {
+        for (layout in listOf(KeyboardLayoutState.Chinese, KeyboardLayoutState.English,
+            KeyboardLayoutState.T9Pinyin, KeyboardLayoutState.Stroke)) {
+            val vm = model()
+            vm.setKeyboardState(layout)
+            vm.enterTemporaryHandwriting()
+            assertEquals(KeyboardPage.Main(MainType.HANDWRITING), vm.page.value)
+            vm.dispatch(KeyboardDispatchAction.AsciiModeChanged(false, "pinyin_simp"))
+            assertEquals(KeyboardPage.Main(MainType.HANDWRITING), vm.page.value)
+            assertTrue(vm.exitTemporaryHandwriting())
+            assertEquals(layout, vm.keyboardState.value)
+            assertEquals(KeyboardPage.Main(MainType.FULL), vm.page.value)
+            assertFalse(vm.exitTemporaryHandwriting())
+        }
+    }
+
+    @Test fun handwritingPreservesNumberPanelReturnTarget() {
+        val vm = model()
+        vm.setKeyboardState(KeyboardLayoutState.T9Pinyin)
+        vm.enterPanel(PanelType.NUMBER)
+        val previousPage = vm.page.value
+        vm.enterTemporaryHandwriting()
+        vm.enterPanel(PanelType.COMMON_SYMBOL)
+        assertTrue(vm.exitTemporaryHandwriting())
+        assertEquals(previousPage, vm.page.value)
+        assertEquals(KeyboardLayoutState.Number, vm.keyboardState.value)
+        vm.exitPanel()
+        assertEquals(KeyboardLayoutState.T9Pinyin, vm.keyboardState.value)
+    }
+
+    @Test fun englishHandwritingReturnSurvivesEnglishEngineRefresh() {
+        val vm = model()
+        vm.setKeyboardState(KeyboardLayoutState.English)
+        vm.enterTemporaryHandwriting()
+        vm.dispatch(KeyboardDispatchAction.AsciiModeChanged(true, "japanese"))
+        assertEquals(KeyboardPage.Main(MainType.HANDWRITING), vm.page.value)
+        assertTrue(vm.exitTemporaryHandwriting())
+        assertEquals(KeyboardLayoutState.English, vm.keyboardState.value)
+        assertEquals(KeyboardPage.Main(MainType.FULL), vm.page.value)
+    }
+
+    @Test fun handwritingOpenedFromToolOverlayReturnsToKeyboard() {
+        for (route in listOf(OverlayRoute.Clipboard(0), OverlayRoute.Edit)) {
+            val vm = model()
+            vm.setKeyboardState(KeyboardLayoutState.T9Pinyin)
+            vm.showOverlay(route)
+            vm.enterTemporaryHandwriting()
+            assertEquals(KeyboardPage.Main(MainType.HANDWRITING), vm.page.value)
+            assertTrue(vm.exitTemporaryHandwriting())
+            assertEquals(KeyboardPage.Main(MainType.FULL), vm.page.value)
+            assertEquals(KeyboardLayoutState.T9Pinyin, vm.keyboardState.value)
+        }
+    }
+
+    @Test fun explicitSchemaSelectionDiscardsTemporaryReturn() {
+        val vm = model()
+        vm.enterTemporaryHandwriting()
+        vm.discardTemporaryHandwriting()
+        vm.switchMain(MainType.FULL)
+        vm.dispatch(KeyboardDispatchAction.AsciiModeChanged(true, "easy_en"))
+        assertFalse(vm.exitTemporaryHandwriting())
+        assertEquals(KeyboardLayoutState.English, vm.keyboardState.value)
+    }
+    @Test fun languageChosenInsideNumberPanelBecomesItsNewReturnTarget() {
+        val vm = model()
+        vm.setKeyboardState(KeyboardLayoutState.T9Pinyin)
+        vm.enterPanel(PanelType.NUMBER)
+        vm.switchMain(MainType.FULL)
+        vm.dispatch(KeyboardDispatchAction.AsciiModeChanged(true, "t9_pinyin"))
+        vm.enterPanel(PanelType.NUMBER)
+        vm.exitPanel()
+        assertEquals("选过英文后不能被旧数字面板记忆拉回九键", KeyboardLayoutState.English, vm.keyboardState.value)
+    }
+
+    @Test fun clipboardExitsHandwritingFromEveryEntryAndReturnsToOriginalLayout() {
+        for (temporary in listOf(true, false)) for (nested in listOf(true, false)) {
+            val vm = model()
+            vm.setKeyboardState(KeyboardLayoutState.T9Pinyin)
+            if (temporary) vm.enterTemporaryHandwriting() else vm.switchMain(MainType.HANDWRITING)
+            if (nested) {
+                vm.showOverlay(OverlayRoute.Menu)
+                vm.pushOverlay(OverlayRoute.Clipboard())
+            } else vm.toggleOverlay(OverlayRoute.Clipboard())
+            val clipboard = vm.page.value as KeyboardPage.Overlay
+            assertEquals(OverlayRoute.Clipboard(), clipboard.route)
+            assertEquals(KeyboardPage.Main(MainType.FULL), clipboard.behind)
+            assertFalse(vm.hasTemporaryHandwriting)
+            vm.closeOverlay()
+            assertEquals(KeyboardPage.Main(MainType.FULL), vm.page.value)
+            assertEquals(KeyboardLayoutState.T9Pinyin, vm.keyboardState.value)
+        }
+    }
+
+    @Test fun otherToolsStillKeepHandwritingAndClipboardKeepsVoice() {
+        for (route in listOf(OverlayRoute.Emoji, OverlayRoute.SchemaList, OverlayRoute.Edit)) {
+            val vm = model()
+            vm.enterTemporaryHandwriting()
+            vm.showOverlay(route)
+            assertEquals(KeyboardPage.Main(MainType.HANDWRITING), (vm.page.value as KeyboardPage.Overlay).behind)
+        }
+        val vm = model()
+        vm.switchMain(MainType.VOICE)
+        vm.showOverlay(OverlayRoute.Clipboard())
+        assertEquals(KeyboardPage.Main(MainType.VOICE), (vm.page.value as KeyboardPage.Overlay).behind)
+    }
+
+    @Test fun delayedEnginePreparationCannotRestoreHandwritingUnderClipboard() {
+        val vm = model()
+        vm.setKeyboardState(KeyboardLayoutState.T9Pinyin)
+        vm.showOverlay(OverlayRoute.Clipboard())
+        vm.applyPreparedEditorKeyboard(false, "rime_ice", true, false, false)
+        val clipboard = vm.page.value as KeyboardPage.Overlay
+        assertEquals(OverlayRoute.Clipboard(), clipboard.route)
+        assertEquals(KeyboardPage.Main(MainType.FULL), clipboard.behind)
+        assertEquals(KeyboardLayoutState.T9Pinyin, vm.keyboardState.value)
+    }
+
+}

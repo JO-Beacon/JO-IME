@@ -1,0 +1,102 @@
+package com.kingzcheung.xime.speech
+
+import com.kingzcheung.xime.service.VoiceMarks
+import com.kingzcheung.xime.service.normalizeVoiceText
+import com.kingzcheung.xime.settings.InputLanguage
+import org.junit.Assert.*
+import org.junit.Test
+
+/** 整句定稿 keeps the model's sentence and clause marks; the 6 s mode keeps turning them into spaces. */
+class SpeechPunctuationTest {
+    @Test fun `kept marks become full width after Chinese and survive repeated cleanup`() {
+        val once = cleanSenseVoiceText("<|zh|><|NEUTRAL|><|Speech|><|withitn|>今天天气不错, 我们出去走走吧.", keepMarks = true)
+        assertEquals("今天天气不错，我们出去走走吧。", once)
+        assertEquals(once, cleanSpeechText(once, keepMarks = true))
+        assertEquals("今天天气不错 我们出去走走吧", cleanSpeechText(once)) // switch off: old spacing
+    }
+
+    @Test fun `number notation is not mistaken for sentence marks`() {
+        assertEquals("体温36.5度，比昨天高了20%，会议10:30开始，花了1,200元。",
+            cleanSpeechText("体温36.5度，比昨天高了20%，会议10:30开始，花了1,200元。", keepMarks = true))
+        assertEquals("版本是1.14。", cleanSpeechText("版本是1.14.", keepMarks = true))
+    }
+
+    @Test fun `mixed Chinese and English keep ASCII marks after Latin words`() {
+        assertEquals("我用 iPhone, 很好用。", cleanSpeechText("我用 iPhone，很好用。", keepMarks = true))
+        assertEquals("这个 bug 太严重了！", cleanSpeechText("这个 bug 太严重了!", keepMarks = true))
+    }
+
+    @Test fun `a run of marks collapses to the strongest one`() {
+        assertEquals("真的吗？", cleanSpeechText("真的吗，？", keepMarks = true))
+        assertEquals("好的。", cleanSpeechText("。好的。。", keepMarks = true))
+    }
+
+    @Test fun `dictated punctuation replaces the model marks around it`() {
+        assertEquals("你好，我在这里。",
+            normalizeVoiceText("你好，逗号，我在这里。", InputLanguage.CHINESE, keepMarks = true))
+        assertEquals("你吃饭了吗？", normalizeVoiceText("你吃饭了吗问号。", InputLanguage.CHINESE, keepMarks = true))
+        assertEquals("你好，我在", normalizeVoiceText("你好逗号我在")) // switch off: dictated marks still work
+        assertEquals("你好 我在", normalizeVoiceText("你好，我在。")) // switch off: model marks become spacing
+    }
+
+    @Test fun `auto punctuation can keep only some kinds of marks`() {
+        fun norm(text: String, marks: VoiceMarks) = normalizeVoiceText(text, InputLanguage.CHINESE, keepMarks = true, marks = marks)
+        val text = "你好，我在这里。你呢？"
+        assertEquals("你好，我在这里。你呢？", norm(text, VoiceMarks()))
+        assertEquals("你好 我在这里。你呢？", norm(text, VoiceMarks(comma = false)))
+        assertEquals("你好，我在这里 你呢？", norm(text, VoiceMarks(period = false)))
+        assertEquals("你好，我在这里。你呢", norm(text, VoiceMarks(question = false)))
+        assertEquals("你好 我在这里 你呢", norm(text, VoiceMarks(comma = false, period = false, question = false)))
+        assertEquals("我用 iPhone 很好用。", norm("我用 iPhone，很好用。", VoiceMarks(comma = false)))
+    }
+
+    @Test fun `dropping marks never touches numbers or dictated marks`() {
+        fun norm(text: String, marks: VoiceMarks) = normalizeVoiceText(text, InputLanguage.CHINESE, keepMarks = true, marks = marks)
+        assertEquals("体温36.5度 会议10:30开始 花了1,200元。", norm("体温36.5度，会议10:30开始，花了1,200元。", VoiceMarks(comma = false)))
+        assertEquals("版本是1.14", norm("版本是1.14.", VoiceMarks(period = false)))
+        assertEquals("你好，我在这里", norm("你好，逗号，我在这里。", VoiceMarks(comma = false, period = false)))
+    }
+
+    @Test fun `regions never repeat a mark and need no space after a mark`() {
+        val t = SpeechTranscript(keepMarks = true)
+        t.update(1, "今天天气不错。", SpeechBoundary.PAUSE)
+        assertEquals("今天天气不错，我们出去吧。", t.update(2, "。我们出去吧。", SpeechBoundary.PAUSE))
+        val preview = SpeechTranscript(keepMarks = true)
+        preview.update(1, "第一句。", SpeechBoundary.PAUSE)
+        assertEquals("第一句，第二句还在说", preview.update(2, "第二句还在说")) // streaming preview has no marks yet
+    }
+
+    @Test fun `a pause inside a sentence does not leave a full stop behind`() {
+        // The user's own dictation on 1.15.2: every pause segment came back ending in 。 and the session was
+        // sent before the end-of-input re-read, so the stops stayed mid-sentence.
+        val t = SpeechTranscript(keepMarks = true)
+        t.update(1, "你之前好好给我保证了，说的。", SpeechBoundary.PAUSE)
+        t.update(2, "不用流式，用整句识别。", SpeechBoundary.PAUSE)
+        t.update(3, "那肯定是哪里有问题的？", SpeechBoundary.PAUSE)
+        assertEquals("你之前好好给我保证了，说的，不用流式，用整句识别，那肯定是哪里有问题的？你看这能看吗。",
+            t.update(4, "你看这能看吗。", SpeechBoundary.PAUSE)) // the latest segment keeps its stop; ？ always stays
+        val english = SpeechTranscript(keepMarks = true)
+        english.update(1, "hello world.", SpeechBoundary.PAUSE)
+        assertEquals("hello world, next one.", english.update(2, "next one.", SpeechBoundary.LIMIT))
+    }
+
+    @Test fun `session keeps marks only with whole sentence on`() {
+        class Engine : LocalSpeechEngine {
+            override val hasRefinement = true
+            override val isStreaming = true
+            override fun detector(): SpeechDetector = object : SpeechDetector {
+                override fun speech(frame: FloatArray) = frame.any { it != 0f }
+                override fun reset() { }
+            }
+            override fun accept(samples: FloatArray) = "预览"
+            override fun finishStream() = "预览"
+            override fun refine(samples: FloatArray) = cleanSenseVoiceText("你好，世界。")
+            override fun refinePunctuated(samples: FloatArray) = cleanSenseVoiceText("你好，世界。", keepMarks = true)
+            override fun reset() { }
+            override fun close() { }
+        }
+        val pcm = ByteArray(32000) { if (it % 2 == 0) 64 else 6 }
+        assertEquals("你好 世界", LocalSpeechSession(Engine(), {}, {}).apply { acceptPcm(pcm) }.finish())
+        assertEquals("你好，世界。", LocalSpeechSession(Engine(), {}, {}, wholeSentence = true).apply { acceptPcm(pcm) }.finish())
+    }
+}

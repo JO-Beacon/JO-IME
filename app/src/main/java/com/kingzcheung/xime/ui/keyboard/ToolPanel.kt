@@ -1,0 +1,139 @@
+package com.kingzcheung.xime.ui.keyboard
+
+import android.view.Gravity
+import android.view.View
+import android.view.inputmethod.EditorInfo
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import com.kingzcheung.xime.service.ToolPanelEditTextHolder
+
+internal val TOOL_PANEL_HEIGHT = 170
+
+/** The same tool panel used as the clipboard search field: one line, no status row. */
+internal const val CLIPBOARD_SEARCH_PANEL_HEIGHT = 96
+
+/** Clipboard search on a short screen (landscape): close button and field share one row. */
+internal const val CLIPBOARD_SEARCH_INLINE_PANEL_HEIGHT = 48
+
+/**
+ * AI 工具插件输入面板（候选栏上方）。
+ *
+ * 仅承载输入与生成触发：输入框（预填上下文，键盘按键路由可注入）+ 生成状态提示。
+ * 生成结果不再显示在此面板，多条结果由 passive 面板（InfoPanel 内 items 点选上屏）承载。
+ */
+@Composable
+fun ToolPanel(
+    title: String,
+    isFocused: Boolean,
+    isLoading: Boolean = false,
+    initialText: String = "",
+    backgroundColor: Color,
+    textColor: Color,
+    accentColor: Color,
+    cardBgColor: Color,
+    onClose: () -> Unit,
+    onFocusChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    heightDp: Int = TOOL_PANEL_HEIGHT,
+    hint: String = "输入上下文或指令",
+    /** Null keeps the generate hint; an empty string hides the status row. */
+    statusText: String? = null,
+    singleLine: Boolean = false,
+    onTextChange: ((String) -> Unit)? = null,
+    /** Close button and field on one row, no title (see [CandidateBarOverlayPanel]). */
+    inline: Boolean = false,
+) {
+    val closeButtonBg = androidx.compose.ui.graphics.lerp(
+        MaterialTheme.colorScheme.surface,
+        MaterialTheme.colorScheme.primary,
+        0.35f
+    )
+
+    CandidateBarOverlayPanel(
+        heightDp = heightDp,
+        backgroundColor = backgroundColor,
+        cardBgColor = cardBgColor,
+        closeButtonBg = closeButtonBg,
+        closeButtonColor = accentColor,
+        title = title,
+        titleColor = textColor,
+        modifier = modifier,
+        onCloseClick = onClose,
+        inline = inline,
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            AndroidView(
+                factory = { context ->
+                    android.widget.EditText(context).apply {
+                        setBackgroundColor(android.graphics.Color.TRANSPARENT)
+                        setTextColor(textColor.hashCode())
+                        setHintTextColor((textColor.copy(alpha = 0.4f)).hashCode())
+                        this.hint = hint
+                        textSize = 16f
+                        isSingleLine = singleLine
+                        gravity = Gravity.TOP or Gravity.START
+                        setPadding(4, 2, 4, 2)
+
+                        setImeActionLabel("生成", EditorInfo.IME_ACTION_DONE)
+                        imeOptions = EditorInfo.IME_FLAG_NO_ENTER_ACTION or
+                            EditorInfo.IME_ACTION_DONE
+
+                        onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
+                            onFocusChange(hasFocus)
+                        }
+                        setOnClickListener { onFocusChange(true) }
+                        onTextChange?.let { change ->
+                            addTextChangedListener(object : android.text.TextWatcher {
+                                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                                override fun afterTextChanged(s: android.text.Editable?) { change(s?.toString().orEmpty()) }
+                            })
+                        }
+                        ToolPanelEditTextHolder.editText = this
+                        if (isFocused) {
+                            post { requestFocus() }
+                        }
+                    }
+                },
+                update = { editText ->
+                    // Something else took view focus (the toolbar's layout switch rebuilds the keyboard
+                    // under the search field): give it back so the caret stays where keys go.
+                    if (isFocused && !editText.hasFocus()) editText.post { editText.requestFocus() }
+                    if (initialText.isNotEmpty() && !editText.text.toString().equals(initialText)) {
+                        editText.setText(initialText)
+                        editText.setSelection(initialText.length)
+                    }
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(if (singleLine) 36.dp else 52.dp),
+            )
+
+            if (statusText != "") Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = statusText ?: if (isLoading) "生成中..." else "输入上下文后按回车生成",
+                    color = textColor.copy(alpha = 0.5f),
+                    fontSize = 11.sp,
+                )
+            }
+        }
+    }
+}

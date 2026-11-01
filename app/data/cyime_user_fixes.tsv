@@ -1,0 +1,14 @@
+# Words the user put on the must-pass list where the dictionary order is wrong for him (2026-10-30).
+# Same rule as cyime_domain_terms.tsv: an existing entry is raised to at least this weight, a missing one is added.
+# Each row moves only its own code. text<TAB>code<TAB>weight
+慢慢地	man man de	125647
+好好地	hao hao de	88235
+他也会来的	ta ye hui lai de	20000
+帮我拿个快递	bang wo na ge kuai di	20000
+连上了吗	lian shang le ma	20000
+按钮	an niu	215000
+# Found on the fresh SMS set (2026-10-30): the chat blend floored these to ~100 although rime-ice has them common.
+我了	wo le	9999
+新浪微博	xin lang wei bo	12150
+# His report (2026-10-30): 测完 is not a dictionary word, so the pattern rule cannot form it.
+测完了吗	ce wan le ma	3000

@@ -1,0 +1,126 @@
+package com.kingzcheung.xime.ui
+
+import android.content.res.Configuration
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
+import androidx.test.core.app.ApplicationProvider
+import android.app.Application
+import com.kingzcheung.xime.viewmodel.KeyboardUiState
+import com.kingzcheung.xime.viewmodel.KeyboardViewModel
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
+import com.kingzcheung.xime.ui.keyboard.*
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+
+class FloatingResizeGeometryTest {
+    @get:Rule val rule = createComposeRule()
+
+    @Test fun realKeyboardKeepsOneCenteredMovementBarWhenEnteringAndLeavingResize() {
+        val vm = KeyboardViewModel(ApplicationProvider.getApplicationContext<Application>())
+        var resizing by mutableStateOf(false)
+        var width by mutableIntStateOf(360)
+        var height by mutableIntStateOf(280)
+        rule.setContent {
+            val config = Configuration(LocalConfiguration.current).apply {
+                screenWidthDp = 900; screenHeightDp = 1200
+            }
+            CompositionLocalProvider(LocalConfiguration provides config, LocalDensity provides Density(.5f)) {
+                MaterialTheme {
+                    KeyboardView(vm, KeyboardUiState(isFloatingMode = true, isAsciiMode = true,
+                        keyboardWidthDp = width, keyboardHeightDp = height, keyboardBottomPaddingDp = 18),
+                        KeyboardCallbacks(onKeyPress = { _, _ -> }, onCandidateSelect = {}),
+                        modifier = Modifier.requiredSize(900.dp, 1000.dp),
+                        resizeOverlay = if (!resizing) null else ({
+                            KeyboardResizeOverlay(height, height, 18, true,
+                                onHeightChange = {}, onBottomPaddingChange = {}, onOpacityChange = {},
+                                onReset = {}, onConfirm = { _, _, _, _ -> resizing = false }, onCancel = { resizing = false })
+                        }))
+                }
+            }
+        }
+        fun indicator() = rule.onNodeWithTag("floating-drag-indicator", true).fetchSemanticsNode().boundsInRoot
+        for ((w, h) in listOf(280 to 228, 360 to 300, 360 to 600, 800 to 420)) {
+            rule.runOnIdle { width = w; height = h }
+            val before = indicator()
+            val area = rule.onNodeWithTag("floating-drag-bar", true).fetchSemanticsNode().boundsInRoot
+            val card = rule.onNodeWithTag("floating-keyboard-card", true).fetchSemanticsNode().boundsInRoot
+            assertEquals(area.center.y, before.center.y, 1f)
+            assertEquals(card.bottom, area.bottom, 1f)
+            assertTrue("bar must include the keyboard's bottom blank", area.height > (28 + 18) * .5f)
+            rule.runOnIdle { resizing = true }
+            rule.onAllNodesWithTag("floating-drag-indicator", true).assertCountEquals(1)
+            val during = indicator()
+            assertEquals(before.center.y, during.center.y, 1f)
+            val hit = rule.onNodeWithTag("keyboard-resize-move-bar", true).fetchSemanticsNode().boundsInRoot
+            assertEquals(area.top, hit.top, 1f)
+            assertEquals(area.bottom, hit.bottom, 1f)
+            val controls = rule.onNodeWithTag("keyboard-resize-controls", true).fetchSemanticsNode().boundsInRoot
+            assertTrue(controls.bottom <= hit.top)
+            rule.onNodeWithContentDescription("确认").performClick()
+            assertEquals(before.center.y, indicator().center.y, 1f)
+        }
+    }
+
+    @Test fun floatingButtonActsImmediatelyAndControlsStayAboveNavigationAtMovedPosition() {
+        var enabled = true
+        var dx = 0
+        rule.setContent {
+            var floating by remember { mutableStateOf(true) }
+            var x by remember { mutableStateOf(50) }
+            var y by remember { mutableStateOf(90) }
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                MaterialTheme {
+                    Box(Modifier.size(640.dp, 600.dp).testTag("root")) {
+                        FloatingKeyboardContainer(floating, 0.5f, 1f, 0.5f, x, y, 48, 700, 220, Color.Black,
+                            onDrag = { a, b -> x += a.toInt(); y += b.toInt(); dx++ }, onDragEnd = {}) {
+                            KeyboardResizeOverlay(288, 288, 0, floating,
+                                onHeightChange = {}, onBottomPaddingChange = {}, onOpacityChange = {}, onReset = {},
+                                onConfirm = { _, _, _, _ -> }, onCancel = {}, modifier = Modifier.fillMaxSize(),
+                                onFloatingModeChange = { floating = it; enabled = it })
+                        }
+                    }
+                }
+            }
+        }
+        val before = rule.onNodeWithContentDescription("确认").fetchSemanticsNode().boundsInRoot
+        rule.onNodeWithTag("floating-drag-bar").performTouchInput { down(center); moveBy(Offset(-30f, -40f)); up() }
+        val after = rule.onNodeWithContentDescription("确认").fetchSemanticsNode().boundsInRoot
+        assertTrue(dx > 0)
+        assertTrue(after.left < before.left && after.top < before.top)
+        assertTrue(after.bottom < 600f - 48f)
+        rule.onNodeWithContentDescription("悬浮键盘").performClick()
+        rule.runOnIdle { assertFalse(enabled) }
+        rule.onNodeWithContentDescription("确认").assertIsDisplayed()
+        rule.onNodeWithTag("floating-drag-bar").assertDoesNotExist()
+    }
+
+    @Test fun landscapeCannotShrinkBelowFourUsableKeyRows() {
+        var height = 280
+        rule.setContent {
+            val config = Configuration(LocalConfiguration.current).apply { screenWidthDp = 800; screenHeightDp = 360 }
+            CompositionLocalProvider(LocalConfiguration provides config, LocalDensity provides Density(1f)) {
+                MaterialTheme { KeyboardResizeOverlay(280, 280, 0, true,
+                    onHeightChange = { height = it }, onBottomPaddingChange = {}, onOpacityChange = {}, onReset = {},
+                    onConfirm = { _, _, _, _ -> }, onCancel = {}, modifier = Modifier.size(320.dp, 280.dp).testTag("resize")) }
+            }
+        }
+        rule.onNodeWithTag("resize").performTouchInput { down(Offset(width / 2f, 12f)); moveBy(Offset(0f, 240f)); up() }
+        assertTrue("44dp工具栏外每行至少44dp", height >= 228)
+        val slider = rule.onNodeWithTag("keyboard-opacity-slider").fetchSemanticsNode().boundsInRoot
+        val confirm = rule.onNodeWithContentDescription("确认").fetchSemanticsNode().boundsInRoot
+        assertTrue(slider.bottom <= confirm.top)
+        assertTrue(floatingKeyboardWidth(800,360,260,300,false) >= FLOATING_RESIZE_MIN_WIDTH_DP)
+        assertTrue(floatingKeyboardWidth(800,360,260,300,true) >= floatingKeyboardWidth(800,360,260,300,false))
+    }
+}

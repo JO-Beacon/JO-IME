@@ -1,0 +1,1 @@
+A Rime-based Android IME: 26-key full pinyin and English, nothing more.

@@ -1,0 +1,287 @@
+package com.kingzcheung.xime.ui.keyboard
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.CancellationException
+import com.kingzcheung.xime.settings.ClipboardWordSegmenter
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.kingzcheung.xime.viewmodel.KeyboardViewModel
+import kotlin.math.max
+
+@Composable
+fun SplitWordsView(
+    text: String,
+    backgroundColor: Color,
+    viewModel: KeyboardViewModel,
+    onBack: () -> Unit,
+    onNavigateToQuickSend: (() -> Unit)? = null,
+    onConfirmText: (String) -> Unit,
+    bottomPaddingDp: Int = 0,
+    modifier: Modifier = Modifier
+) {
+    val textColor = MaterialTheme.colorScheme.onSurface
+    val accentColor = MaterialTheme.colorScheme.primary
+    val chipBgColor = MaterialTheme.colorScheme.surfaceContainerLow
+    val context = LocalContext.current
+    var splitParts by remember(text) { mutableStateOf<List<String>>(emptyList()) }
+    var loading by remember(text) { mutableStateOf(true) }
+    var error by remember(text) { mutableStateOf<String?>(null) }
+    val selectedIndices = remember(text) { mutableStateListOf<Int>() }
+    LaunchedEffect(text) {
+        try { splitParts = ClipboardWordSegmenter.split(context, text) }
+        catch (e: CancellationException) { throw e }
+        catch (e: Exception) { error = "分词失败：${e.message}" }
+        finally { loading = false }
+    }
+    val selectedText = selectedIndices.joinToString("") { splitParts[it] }
+
+    fun addSelected(index: Int) {
+        val pos = selectedIndices.binarySearch(index)
+        if (pos < 0) selectedIndices.add(-(pos + 1), index)
+    }
+
+    BoxWithConstraints(modifier.fillMaxWidth().keyboardPanelBackground(backgroundColor)) {
+    val compactActions = maxWidth < 420.dp
+    Column(Modifier.fillMaxSize()) {
+        // 导航区
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 50.dp)
+                .padding(horizontal = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .clickable { onBack() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                    contentDescription = "返回",
+                    tint = accentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Text(
+                text = "拆词",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor,
+                modifier = Modifier
+            )
+
+            TextButton(
+                modifier = Modifier.weight(1f),
+                enabled = selectedText.isNotEmpty(),
+                onClick = {
+                    val text = selectedIndices.joinToString("") { splitParts[it] }
+                    if (text.isNotEmpty()) {
+                        viewModel.addPinnedText(text)
+                        onNavigateToQuickSend?.invoke()
+                    }
+                }
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Star,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(if (compactActions) "固定" else "固定选中文字", color = accentColor, fontSize = 13.sp, maxLines = 1)
+            }
+            TextButton(enabled = selectedText.isNotEmpty(), onClick = {
+                onConfirmText(selectedText)
+                onBack()
+            }) { Text("确定", fontWeight = FontWeight.Bold) }
+        }
+
+        // 内容区（白色卡片样式）
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .padding(horizontal = 4.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(MaterialTheme.colorScheme.surface)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(8.dp)
+                ) {
+
+                    if (loading) Text("正在按词库拆词…", color = textColor)
+                    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    // 拆词结果（支持点击 + 滑动选词）
+                    val chipBounds = remember(splitParts) { mutableMapOf<Int, Rect>() }
+                    var containerRootPos by remember { mutableStateOf(Offset.Zero) }
+
+                    fun findChipAt(pos: Offset): Int? {
+                        val rootPos = pos + containerRootPos
+                        return chipBounds.entries.firstOrNull { (_, bounds) ->
+                            bounds.contains(rootPos)
+                        }?.key
+                    }
+
+                    val scrollState = rememberScrollState()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(scrollState)
+                            .onGloballyPositioned { containerRootPos = it.positionInRoot() }
+                            .pointerInput(splitParts) {
+                                // 点一下切换一个词；横着拖从按下的词连选到手指下的词。竖着拖是在滚动看内容，
+                                // 一个词也不选（用户 10-30：上下拖动松手后，手指处的词被选中）。
+                                // 内容放得下、滚不动时，竖着拖仍然连选。
+                                awaitEachGesture {
+                                    val down = awaitFirstDown(requireUnconsumed = false)
+                                    val firstChip = findChipAt(down.position)
+                                    val isRemoveMode = firstChip != null && firstChip in selectedIndices
+                                    var mode = SplitGesture.PENDING
+                                    while (true) {
+                                        // Main 先于外层滚动：连选时先消费，滚动就不会接手。
+                                        val event = awaitPointerEvent(PointerEventPass.Main)
+                                        val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                        if (!change.pressed) {
+                                            if (mode == SplitGesture.PENDING && firstChip != null && !change.isConsumed) {
+                                                if (isRemoveMode) selectedIndices.remove(firstChip) else addSelected(firstChip)
+                                            }
+                                            break
+                                        }
+                                        if (mode == SplitGesture.PENDING) {
+                                            if (change.isConsumed) { mode = SplitGesture.SCROLL; continue }
+                                            val moved = change.position - down.position
+                                            if (moved.getDistance() <= viewConfiguration.touchSlop) continue
+                                            mode = splitGestureMode(firstChip != null, moved.x, moved.y, scrollState.maxValue > 0)
+                                        }
+                                        if (mode != SplitGesture.SELECT) continue
+                                        change.consume()
+                                        val chipIndex = findChipAt(change.position) ?: continue
+                                        val from = minOf(firstChip!!, chipIndex)
+                                        val to = maxOf(firstChip, chipIndex)
+                                        for (i in from..to) {
+                                            if (isRemoveMode) selectedIndices.remove(i)
+                                            else if (i !in selectedIndices) addSelected(i)
+                                        }
+                                    }
+                                }
+                            }
+                    ) {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            splitParts.forEachIndexed { index, part ->
+                                val isSelected = index in selectedIndices
+                                Box(
+                                    modifier = Modifier
+                                        .onGloballyPositioned { chipBounds[index] = it.boundsInRoot() }
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (isSelected) accentColor else chipBgColor)
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = splitPartLabel(part),
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else textColor,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 底部留空
+        Spacer(modifier = Modifier.height(bottomPaddingDp.dp))
+    }
+}
+}
+
+internal enum class SplitGesture { PENDING, SELECT, SCROLL }
+
+/**
+ * What a drag past the touch slop does: sideways from a word selects a run of words; up or down
+ * scrolls the list and selects nothing, unless the list cannot scroll, where it still selects.
+ */
+internal fun splitGestureMode(onChip: Boolean, dx: Float, dy: Float, canScroll: Boolean): SplitGesture = when {
+    !onChip -> SplitGesture.SCROLL
+    canScroll && kotlin.math.abs(dy) >= kotlin.math.abs(dx) -> SplitGesture.SCROLL
+    else -> SplitGesture.SELECT
+}
+
+private val NO_BREAK_SPACE = Char(0x00A0)
+
+/** 空白词块按原样占宽显示；普通空格换成不换行空格，避免被当作行尾空白而不计宽度。 */
+internal fun splitPartLabel(part: String): String = when {
+    !part.isBlank() -> part
+    part.contains('\n') -> "换行"
+    else -> part.replace(' ', NO_BREAK_SPACE).replace("\t", NO_BREAK_SPACE.toString().repeat(4))
+}

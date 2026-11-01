@@ -1,0 +1,247 @@
+xime_index:
+  # JO-IME 自己的方案/插件商店目录（仓库 store/ 目录）。
+  # 上游 ximeiorg/xime-index 的条目都要求 Xime 2.x，JO-IME 装不了，已不再使用。
+  # 可在 xime.custom.yaml 换成自建代理/镜像；下载器按顺序依次尝试，直到成功为止。
+  # jsDelivr 在国内通常可用，放在前面。末尾需要 /。
+  base_urls:
+    - "https://cdn.jsdelivr.net/gh/Cyletix/CyIME@main/store/"
+    - "https://fastly.jsdelivr.net/gh/Cyletix/CyIME@main/store/"
+    - "https://raw.githubusercontent.com/Cyletix/CyIME/main/store/"
+
+style:
+  # 浅色/深色模式的配色，deep 为降级后备
+  # 可选值：内置主题 id 或 color_schemes 中定义的 id
+  color_scheme:
+    light: pure_black
+    dark: "" # 默认沿用当前所选配色；可在自定义配置中指定独立深色主题
+  # 显示模式：0=浅色, 1=深色（默认）, 2=跟随系统
+  dark_mode: 1
+
+# 配色方案可配置背景类型（纯色/渐变/图片），默认均为纯色。
+# 如需渐变/图片背景，在 xime.custom.yaml 的对应主题下覆盖 keyboard_background 即可：
+#
+#   keyboard_background:
+#     type: gradient
+#     colors: [0x8F73E2, 0xE8DEF8]        # 亮色渐变断点
+#     colors_dark: [0x4A3F7A, 0x2D2040]    # 暗色渐变断点（可选）
+#     angle: 90                            # 角度制
+#  
+#   keyboard_background:
+#     type: image
+#     src: "themes/lavender_bg.png"          # 相对于 rime/ 用户目录（优先）或 assets/
+#     fit: cover                             # cover | contain | fill | fit_width | fit_height | none
+#
+# 自定义图片背景有两种方式：
+# 1. 在系统相册/文件管理中把图片「分享到 JO-IME」，图片会自动存入
+#    rime/themes/custom_<时间戳>.jpg，并把可用的 color_schemes 配置模板复制到剪贴板，
+#    粘贴到 rime/xime.custom.yaml 后即可在主题设置中选择。
+# 2. 手动把图片放入 rime/themes/（如通过 USB 或文件管理器），然后在
+#    xime.custom.yaml 中添加引用它的 color_scheme，src 写相对 rime/ 的路径。
+#    内置主题的同名文件会被用户目录中的文件覆盖。
+#
+# color_schemes 每个主题可用的颜色字段（未设置的会回退到全局 keyboard.colors 默认值）：
+#   primary_color          - 主题强调色（种子色）
+#   keyboard_bg_color      - 键盘背景后备色（配置了 keyboard_background 时以 background 为准）
+#   key_bg_color / key_bg_color_dark           - 按键底色（亮/暗）
+#   special_key_bg_color / _dark               - 特殊按键底色（亮/暗）
+#   candidate_bar_bg_color                     - 候选栏底色
+#   key_text_color / key_text_color_dark       - 按键文字色（亮/暗）
+#   candidate_text_color / _dark               - 候选文字色（亮/暗）
+#   candidate_selected_text_color / _dark      - 候选选中文字色（亮/暗），未设置时回退到
+#                                                 key_text_color（图片背景看不清时建议单独配置）
+#
+color_schemes:
+  lavender_purple:
+    name: "薰衣草紫"
+    primary_color: 0x8F73E2
+    keyboard_background:
+      type: solid
+      color: 0xEEE8F4
+      color_dark: 0x211E28
+    key_background:
+      type: solid
+      color: 0xFFFBFF
+      color_dark: 0x38333F
+  
+  # 1.9.15 移除的旧主题按单色相明度阶梯重新配色，每个色系留一套作为内置主题恢复（TonalThemes.kt，
+  # 由 tools/theme_rebuild.py 生成并检查对比度）。在 xime.custom.yaml 写同名 id 仍可覆盖；
+  # 未知 id 会回落到柔和蓝。
+
+# ── 26 键全键盘手势配置 ──
+# 每个按键可定义 4 个手势：
+#   tap:        点按
+#   swipe_up:   上滑
+#   swipe_down: 下滑
+#   long_press: 长按（数组，弹出气泡后左右滑动选择）
+#
+# 每个手势的值格式：
+#   - 字符串 "a" → 上屏该文本，显示也是它
+#   - { label, action, value }
+#     label:  按键上显示的文字
+#     action: commit（上屏）, command（内置命令，value 为命令名）, select_all, copy, cut,
+#             paste, line_start, line_end, undo, none, repeat
+#     command 可用命令：
+#       clear_composition - 清空当前输入编码和候选词
+#       show_ime_picker   - 弹出系统输入法选择框
+#     value:  上屏时的输出文本（不指定则用 label）
+#
+# long_press 示例（弹出多个选项供滑动选择）：
+#   long_press: { display: "bubble", values: [ { label: "大写", action: "commit", value: "A" }, { label: "Ä", action: "commit", value: "ä" } ] }
+#   # 也支持字符串简写：
+#   long_press: { display: "bubble", values: ["q", "Q"] }
+keyboard:
+  # ── 键盘颜色配置（可选，不设置则使用内置默认值）──
+  # 背景色已由 color_schemes.*.keyboard_background 接管
+  # key_bg_color             - 按键底色（亮色）
+  # key_bg_color_dark        - 按键底色（暗色）
+  # special_key_bg_color     - 特殊按键底色（亮色）
+  # special_key_bg_color_dark- 特殊按键底色（暗色）
+  # key_text_color           - 按键文字颜色（亮色）
+  # key_text_color_dark      - 按键文字颜色（暗色）
+  # candidate_text_color     - 候选文字颜色（亮色）
+  # candidate_text_color_dark- 候选文字颜色（暗色）
+  colors:
+    key_bg_color: 0xFFFFFF
+    key_bg_color_dark: 0x60FFFFFF
+    # special_key_bg_color: 0x9fef86 #不设置时默认取主题色
+    # special_key_bg_color_dark: 0x4A4A4A #不设置时默认取主题色
+    key_text_color: 0x202124
+    key_text_color_dark: 0xE8EAED
+    candidate_text_color: 0x202124
+    candidate_text_color_dark: 0xE8EAED
+  
+  # ── 按键配置（可选，不设置则使用默认值）──
+  # corner_radius:      按键圆角半径（dp，默认 8），独立于 shadow.shape_radius
+  # spacing_x:          相邻键帽之间的横向总缝覆盖值（dp）；不设置（或写 2）表示用布局策略默认：
+  #                       26 键 4.5 / 14 键 5 / 九宫格·数字·笔画 6
+  # spacing_y:          纵向总缝覆盖值（dp）；不设置（或写 2）表示用布局策略默认：
+  #                       26 键 5.5 / 14 键 6 / 九宫格·数字·笔画 6
+  # 说明：总缝 = 相邻两个键帽之间的可见间隙（两侧各一半）；宽度从手机参考格增至
+  #       两倍时，平滑加大到 26 键 12/11、14 键 10/12、九键 12/12 dp。
+  #       小悬浮可缩至基准的 0.85 倍；矮/窄键格最多留 20% 作缝。
+  #       上述缩放只针对默认间距；显式覆盖值仍按所填总缝使用（见 KeyVisualPolicy.kt）。
+  #       触摸区域始终是整格，不会因为缝变大而变小。
+  # 各键盘可单独覆盖（可选），键盘名：qwerty / t9 / number / stroke / symbol / japanese_kana
+  # 例如：t9: { spacing_x: 8, spacing_y: 8 }
+  key:
+    corner_radius: 8
+
+  # ── 按键阴影（可选，不设置则使用默认值）──
+  # enabled:            是否启用阴影
+  # elevation:          阴影高度（整数 dp，默认 1；小数不生效）
+  shadow:
+    enabled: true
+    elevation: 1
+
+  # ── 字体配置（可选，配置为空时使用系统默认字体）──
+  # 字体路径查找规则：
+  #   - 绝对路径（以 / 开头）：从根目录找起，如 /fonts/myfont.ttf
+  #   - 相对路径（包含 /）：相对于 rime/ 目录，如 fonts/myfont.ttf
+  #   - 仅文件名：相对于 rime/ 目录查找，如 myfont.ttf
+  fonts:
+    key_font: ""
+    key_label_font: ""
+    candidate_font: ""
+    comment_font: ""
+
+  qwerty:
+    # ── 按键布局模式（仅 26 键键盘支持；九键/笔画等其余键盘固定 standard，配置不生效）──
+    # standard: 默认布局（主文字居中，下滑提示在底部）
+    # compact: 紧凑布局（主文字在左上，下滑提示占满键帽中部）
+    button_layout: standard
+    layout:
+      rows:
+        - [q, w, e, r, t, y, u, i, o, p]
+        - [a, s, d, f, g, h, j, k, l]
+        - [z, x, c, v, b, n, m]
+    keys:
+      # ── 第一行 ──
+      # long_press 顺序：小写 → 大写 → 带变音符号的相似字母
+      # swipe_down 显示对应的五笔字根（action:none 仅显示不上屏）
+      # display: bubble → 气泡显示；key → 显示在按键上（最多显示 2 个字）
+      q: { tap: "q", swipe_up: "1", swipe_down: { label: "金 钅𠂊勺㐅 犭𱼀", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["q", "Q"] } }
+      w: { tap: "w", swipe_up: "2", swipe_down: { label: "人亻八癶", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["w", "W"] } }
+      e: { tap: "e", swipe_up: "3", swipe_down: { label: "月⺼彡乃用爫彡𧘇豕", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["e", "E", "è", "é", "ê", "ë"] } }
+      r: { tap: "r", swipe_up: "4", swipe_down: { label: "白手龵扌斤𰀪𠂆", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["r", "R"] } }
+      t: { tap: "t", swipe_up: "5", swipe_down: { label: "禾竹丿𠂉彳夂攵", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["t", "T"] } }
+      y: { tap: "y", swipe_up: "6", swipe_down: { label: "言讠文方广亠丶乀", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["y", "Y", "ÿ"] } }
+      u: { tap: "u", swipe_up: "7", swipe_down: { label: "立六辛冫丬门疒丷䒑", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["u", "U", "ù", "ú", "û", "ü"] } }
+      i: { tap: "i", swipe_up: "8", swipe_down: { label: "水氵小氺头𭕄⺌", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["i", "I", "ì", "í", "î", "ï"] } }
+      o: { tap: "o", swipe_up: "9", swipe_down: { label: "火灬米", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["o", "O", "ò", "ó", "ô", "õ", "ö", "ø"] } }
+      p: { tap: "p", swipe_up: "0", swipe_down: { label: "之辶冖宀廴礻", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["p", "P"] } }
+
+      # ── 第二行 ──
+      a: { tap: "a", swipe_up: { label: "～", value: "~" }, swipe_down: { label: "工匚戈艹廿龷七弋戈", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["a", "A", "à", "á", "â", "ã", "ä", "å", "æ"] } }
+      s: { tap: "s", swipe_up: { label: "／", value: "/" }, swipe_down: { label: "木丁西", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["s", "S", "ß"] } }
+      d: { tap: "d", swipe_up: { label: "：", value: ":" }, swipe_down: { label: "大犬三古龵镸石厂丆", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["d", "D"] } }
+      f: { tap: "f", swipe_up: { label: "；", value: ";" }, swipe_down: { label: "土士二干十寸雨", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["f", "F"] } }
+      g: { tap: "g", swipe_up: { label: "“", value: "“" }, swipe_down: { label: "王龶五一戋", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["g", "G"] } }
+      h: { tap: "h", swipe_up: { label: "”", value: "”" }, swipe_down: { label: "目丨卜⺊上止龰", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["h", "H"] } }
+      j: { tap: "j", swipe_up: { label: "－", value: "-" }, swipe_down: { label: "日曰早廾刂虫丿Ⅱ", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["j", "J"] } }
+      k: { tap: "k", swipe_up: { label: "（", value: "(" }, swipe_down: { label: "口Ⅲ川", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["k", "K"] } }
+      l: { tap: "l", swipe_up: { label: "）", value: ")" }, swipe_down: { label: "田甲囗四罒车皿力", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["l", "L"] } }
+      # ── 第三行 ──
+      z: { tap: "z", swipe_up: { label: "＊", value: "*" }, swipe_down: { label: "", action: "none", display: "key" }, long_press: { display: "bubble", values: [ "z","Z"] } }
+      x: { tap: "x", swipe_up: { label: "＠", value: "@" }, swipe_down: { label: "弓匕纟幺弓𠤎", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["x", "X"] } }
+      c: { tap: "c", swipe_up: { label: "、", value: "、" }, swipe_down: { label: "又巴马厶龴ス", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["c", "C", "ç"] } }
+      v: { tap: "v", swipe_up: { label: "？", value: "?" }, swipe_down: { label: "女刀九臼巛彐", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["v", "V"] } }
+      b: { tap: "b", swipe_up: { label: "！", value: "!" }, swipe_down: { label: "子耳了也阝卩㔾凵", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["b", "B"] } }
+      n: { tap: "n", swipe_up: { label: "％", value: "%" }, swipe_down: { label: "已己巳心忄羽乙𠃜", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["n", "N", "ñ"] } }
+      m: { tap: "m", swipe_up: { label: "＃", value: "#" }, swipe_down: { label: "山由贝冂冎几", action: "none", display: "bubble" }, long_press: { display: "bubble", values: ["m", "M"] } }
+      # ── 第四行: 暂时不受layout控制 ──
+      #  逗号键，label 为中文显示，value 为英文显示+提交值
+      "'": { tap: { label: "，", value: "," }, swipe_up: { label: "。", value: "." } , long_press: { display: "bubble", values: [ ",","."] }}
+      # 中/英切换键，label 为按键显示文字
+      earth: { tap: { label: "@language", action: "toggle_ascii" }, long_press: { display: "bubble", values: [ { label: "选择输入法", action: "command", value: "show_ime_picker" } ] } }
+    
+  # 英文键盘布局
+  qwerty_en:
+    # ── 按键布局模式 ──
+    # standard: 默认布局（主文字居中，下滑提示在底部）
+    # compact: 紧凑布局（主文字在左上，下滑提示占满键帽中部）
+    button_layout: standard
+    layout:
+      rows:
+        - [q, w, e, r, t, y, u, i, o, p]
+        - [a, s, d, f, g, h, j, k, l]
+        - [z, x, c, v, b, n, m]
+    keys:
+      # ── 第一行 ──
+      q: { tap: "q", swipe_up: "1", long_press: { display: "bubble", values: ["q", "Q"] } }
+      w: { tap: "w", swipe_up: "2", long_press: { display: "bubble", values: ["w", "W"] } }
+      e: { tap: "e", swipe_up: "3", long_press: { display: "bubble", values: ["e", "E"] } }
+      r: { tap: "r", swipe_up: "4", long_press: { display: "bubble", values: ["r", "R"] } }
+      t: { tap: "t", swipe_up: "5", long_press: { display: "bubble", values: ["t", "T"] } }
+      y: { tap: "y", swipe_up: "6", long_press: { display: "bubble", values: ["y", "Y"] } }
+      u: { tap: "u", swipe_up: "7", long_press: { display: "bubble", values: ["u", "U"] } }
+      i: { tap: "i", swipe_up: "8", long_press: { display: "bubble", values: ["i", "I"] } }
+      o: { tap: "o", swipe_up: "9", long_press: { display: "bubble", values: ["o", "O"] } }
+      p: { tap: "p", swipe_up: "0", long_press: { display: "bubble", values: ["p", "P"] } }
+      # ── 第二行 ──
+      a: { tap: "a", swipe_up: "~", long_press: { display: "bubble", values: ["a", "A"] } }
+      s: { tap: "s", swipe_up: "/", long_press: { display: "bubble", values: ["s", "S"] } }
+      d: { tap: "d", swipe_up: ":", long_press: { display: "bubble", values: ["d", "D"] } }
+      f: { tap: "f", swipe_up: ";", long_press: { display: "bubble", values: ["f", "F"] } }
+      g: { tap: "g", swipe_up: "\"", long_press: { display: "bubble", values: ["g", "G"] } }
+      h: { tap: "h", swipe_up: "\"", long_press: { display: "bubble", values: ["h", "H"] } }
+      j: { tap: "j", swipe_up: "-", long_press: { display: "bubble", values: ["j", "J"] } }
+      k: { tap: "k", swipe_up: "(", long_press: { display: "bubble", values: ["k", "K"] } }
+      l: { tap: "l", swipe_up: ")", long_press: { display: "bubble", values: ["l", "L"] } }
+      # ";": { tap: ";", shift: ":" }
+
+      # ── 第三行 ──
+      z: { tap: "z", swipe_up: "*", long_press: { display: "bubble", values: ["z", "Z"] } }
+      x: { tap: "x", swipe_up: "@", long_press: { display: "bubble", values: ["x", "X"] } }
+      c: { tap: "c", swipe_up: "、", long_press: { display: "bubble", values: ["c", "C"] } }
+      v: { tap: "v", swipe_up: "?", long_press: { display: "bubble", values: ["v", "V"] } }
+      b: { tap: "b", swipe_up: "!", long_press: { display: "bubble", values: ["b", "B"] } }
+      n: { tap: "n", swipe_up: "%", long_press: { display: "bubble", values: ["n", "N"] } }
+      m: { tap: "m", swipe_up: "#", long_press: { display: "bubble", values: ["m", "M"] } }
+      #  逗号键，label 为中文显示，value 为英文显示+提交值
+      "'": { tap: { label: ",", value: "," }, swipe_up: { label: ".", value: "." } }
+      # 中/英切换键，label 为按键显示文字
+      earth: { tap: { label: "@language", action: "toggle_ascii" }, long_press: { display: "bubble", values: [ { label: "选择输入法", action: "command", value: "show_ime_picker" } ] } }
+
+  # 手写键盘配置：手写不经过 rime 引擎，切换时不调 switchSchema。
+  handwriting:
+    schemas: [handwriting]

@@ -1,0 +1,330 @@
+package com.kingzcheung.xime.speech
+
+import org.junit.Assert.*
+import org.junit.Test
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+
+class SpeechSegmentationTest {
+    private class Detector : SpeechDetector {
+        override fun speech(frame: FloatArray) = frame.any { it != 0f }
+        override fun reset() { }
+    }
+    @Test fun `continuous speech has bounded regions without duplicated or missing samples`() {
+        val sent = ArrayList<Float>()
+        val closed = ArrayList<Float>()
+        val boundaries = ArrayList<SpeechBoundary>()
+        val s = SpeechSegmenter(Detector(), 1000, { _, a -> sent.addAll(a.toList()) }, { _, a, b ->
+            closed.addAll(a.toList()); boundaries.add(b)
+        })
+        val input = FloatArray(16000 * 11 + 117) { .05f + (it % 17) * .0001f }
+        input.asList().chunked(937).forEach { s.accept(it.toFloatArray()) }
+        s.finishInput()
+        assertEquals(input.toList(), sent)
+        assertEquals(sent, closed)
+        assertTrue(boundaries.count { it == SpeechBoundary.LIMIT } >= 3)
+        assertEquals(SpeechBoundary.STOP, boundaries.last())
+    }
+    @Test fun `natural pause ends a region and short final PCM is retained`() {
+        val regions = mutableListOf<Pair<FloatArray, SpeechBoundary>>()
+        val s = SpeechSegmenter(Detector(), 12000, { _, _ -> }, { _, a, b -> regions.add(a to b) })
+        s.accept(FloatArray(16000) { .1f }); s.accept(FloatArray(16000))
+        s.accept(FloatArray(1117) { .2f }); s.finishInput()
+        assertEquals(2, regions.size)
+        assertEquals(SpeechBoundary.PAUSE, regions[0].second)
+        assertEquals(1117, regions[1].first.count { it == .2f })
+        assertEquals(16000, regions[0].first.count { it == .1f })
+    }
+    @Test fun `silence does not become a phrase`() {
+        var count = 0
+        val s = SpeechSegmenter(Detector(), 4000, { _, _ -> count++ }, { _, _, _ -> count++ })
+        s.accept(FloatArray(16000 * 20)); s.finishInput()
+        assertEquals(0, count)
+    }
+
+    @Test fun `VAD approved quiet Paraformer speech is retained after a louder phrase`() {
+        val sent = mutableListOf<Float>()
+        val s = SpeechSegmenter(Detector(), 12000, { _, a -> sent.addAll(a.toList()) },
+            { _, _, _ -> }, useEnergyPause = false)
+        val loud = FloatArray(16000) { .1f }
+        val quiet = FloatArray(32000) { .00006f }
+        s.accept(loud); s.accept(FloatArray(16000)); s.accept(quiet); s.finishInput()
+        assertEquals(quiet.size, sent.count { it == .00006f })
+        assertEquals(loud.size, sent.count { it == .1f })
+    }
+
+    @Test fun `VAD only mode cannot open a silent region during trailing hangover`() {
+        val regions = mutableListOf<FloatArray>()
+        val detector = object : SpeechDetector {
+            override fun speech(frame: FloatArray) = true
+            override fun reset() {}
+        }
+        val s = SpeechSegmenter(detector, 1000, { _, _ -> }, { _, a, _ -> regions.add(a) },
+            useEnergyPause = false)
+        s.accept(FloatArray(94 * 512) { .1f }); s.accept(FloatArray(16000)); s.finishInput()
+        assertEquals(1, regions.size)
+    }
+
+    @Test fun `Paraformer clears detector history on real pauses but keeps it across forced cuts`() {
+        var resets = 0
+        val detector = object : SpeechDetector {
+            override fun speech(frame: FloatArray) = frame.any { it != 0f }
+            override fun reset() { resets++ }
+        }
+        val s = SpeechSegmenter(detector, 1000, { _, _ -> }, { _, _, _ -> },
+            useEnergyPause = false, resetDetectorOnPause = true)
+        s.accept(FloatArray(94 * 512) { .1f }) // 3 s forced cut
+        assertEquals(0, resets)
+        s.accept(FloatArray(16000) { .001f }); s.accept(FloatArray(16000))
+        assertEquals(1, resets)
+        s.finishInput()
+        assertEquals(2, resets)
+    }
+    @Test fun `word boundaries and punctuation become one space without final punctuation`() {
+        assertEquals("hello world 你好 再见", cleanSpeechText("<|zh|>hello world，你好。 再见！"))
+    }
+    @Test fun `late correction replaces its own region without repeating the next phrase`() {
+        val t = SpeechTranscript()
+        t.update(1, "错误预览", SpeechBoundary.PAUSE)
+        t.update(2, "下一句话", SpeechBoundary.PAUSE)
+        assertEquals("正确结果 下一句话", t.update(1, "正确结果", SpeechBoundary.PAUSE))
+        assertEquals("正确结果 下一句话", t.update(2, "下一句话", SpeechBoundary.PAUSE))
+    }
+    @Test fun `forced window cut does not insert a fake Chinese word boundary`() {
+        val t = SpeechTranscript()
+        t.update(1, "都不会", SpeechBoundary.LIMIT)
+        assertEquals("都不会打字了", t.update(2, "打字了", SpeechBoundary.PAUSE))
+        assertEquals("都不会打字了 怎么", t.update(3, "怎么", SpeechBoundary.STOP))
+    }
+    @Test fun `empty final removes only the unsupported preview`() {
+        val t = SpeechTranscript()
+        t.update(1, "第一句", SpeechBoundary.PAUSE)
+        t.update(2, "错误的日语预览", SpeechBoundary.PAUSE)
+        assertEquals("第一句", t.update(2, ""))
+    }
+
+    @Test fun `SenseVoice token spaces do not replace actual pause separators`() {
+        assertEquals("うちの中学は弁当制で 持っていけない場合は50円", cleanSenseVoiceText("うち の 中学 は 弁当 制 で、 持っ てい けない 場 合は 50 円。"))
+        assertEquals("hello world 你好 世界", cleanSenseVoiceText("hello world，你 好，世界。"))
+    }
+
+    @Test fun `SenseVoice no speech metadata rejects hallucinated words before cleanup`() {
+        for (language in listOf("<|nospeech|>", "nospeech")) {
+            assertEquals("", cleanSenseVoiceText("Yeah.", language))
+            assertEquals("", cleanSenseVoiceText("谢谢观看", language))
+        }
+        assertEquals("", cleanSenseVoiceText("<|nospeech|><|NEUTRAL|><|Event_UNK|>Yeah"))
+    }
+
+    @Test fun `real short words and mixed language speech are not blacklisted`() {
+        assertEquals("Yeah", cleanSenseVoiceText("Yeah!", "<|en|>"))
+        assertEquals("嗯", cleanSenseVoiceText("嗯。", "<|zh|>"))
+        assertEquals("はい", cleanSenseVoiceText("はい。", "<|ja|>"))
+        assertEquals("Yeah 可以", cleanSenseVoiceText("Yeah，可以。", "<|zh|>"))
+        assertEquals("Yeah", cleanSenseVoiceText("Yeah")) // Missing metadata is not proof of silence.
+    }
+
+
+    @Test fun `second pass and region assembly preserve decimals and dictated names until UI`() {
+        val t = SpeechTranscript()
+        t.update(1, "零点零五")
+        val corrected = cleanSenseVoiceText("<|zh|>0.05 句 号。")
+        assertEquals("0.05句号", corrected)
+        assertEquals("0.05句号", t.update(1, corrected, SpeechBoundary.PAUSE))
+        val result = t.update(2, "5-2=3，问号。", SpeechBoundary.STOP)
+        assertEquals("0.05。5-2=3？", com.kingzcheung.xime.service.normalizeVoiceText(result))
+        assertEquals(result, cleanSpeechText(result))
+    }
+
+    private open class FakeEngine(override val hasRefinement: Boolean = false) : LocalSpeechEngine {
+        override val isStreaming = true
+        var streamSamples = 0
+        val finalizedSizes = mutableListOf<Int>()
+        override fun detector(): SpeechDetector = Detector()
+        override fun accept(samples: FloatArray): String { streamSamples += samples.size; return "预览" }
+        override fun finishStream(): String { finalizedSizes.add(streamSamples); streamSamples = 0; return "第一遍" }
+        override fun refine(samples: FloatArray) = "最终结果"
+        override fun reset() { }
+        override fun close() { }
+    }
+    private fun pcm(count: Int, sample: Int = 1600) = ByteArray(count * 2) { if (it % 2 == 0) sample.toByte() else (sample shr 8).toByte() }
+
+    @Test fun `hard limit followed by silence never asks SenseVoice to invent another phrase`() {
+        for (twoPass in listOf(false, true)) {
+            val decoded = mutableListOf<FloatArray>()
+            val errors = mutableListOf<String>()
+            val engine = object : FakeEngine(twoPass) {
+                override val isStreaming = twoPass
+                override fun refine(samples: FloatArray): String {
+                    decoded.add(samples)
+                    return if (samples.any { it != 0f }) "有效语音" else "Yeah"
+                }
+            }
+            val session = LocalSpeechSession(engine, {}, { errors.add(it) })
+            // 6 s target + 2 s forced-cut margin, exactly 250 frames; then no new speech.
+            session.acceptPcm(pcm(128000))
+            session.acceptPcm(pcm(16000, 0))
+            assertEquals("mode twoPass=$twoPass", "有效语音", session.finish())
+            assertEquals(1, decoded.size)
+            assertTrue(errors.isEmpty())
+        }
+    }
+
+    @Test fun `hard limit cannot use a padded stop tail to start a silent region`() {
+        val regions = mutableListOf<FloatArray>()
+        val segmenter = SpeechSegmenter(Detector(), 1000, { _, _ -> }, { _, pcm, _ -> regions.add(pcm) })
+        // First forced cut at ceil(3000 ms * 16 / 512) frames, then a sub-frame silent tail.
+        segmenter.accept(FloatArray(94 * 512) { .1f })
+        segmenter.accept(FloatArray(73))
+        segmenter.finishInput()
+        assertEquals(1, regions.size)
+        assertTrue(regions.single().all { it == .1f })
+    }
+
+    @Test fun `VAD hangover after a hard limit cannot turn low energy silence into speech`() {
+        val regions = mutableListOf<FloatArray>()
+        val hangover = object : SpeechDetector {
+            override fun speech(frame: FloatArray) = true
+            override fun reset() {}
+        }
+        val segmenter = SpeechSegmenter(hangover, 1000, { _, _ -> }, { _, pcm, _ -> regions.add(pcm) })
+        segmenter.accept(FloatArray(94 * 512) { .1f })
+        segmenter.accept(FloatArray(16000))
+        segmenter.finishInput()
+        assertEquals(1, regions.size)
+    }
+
+    @Test fun `new short speech after a forced cut and silence still reaches decoder`() {
+        val regions = mutableListOf<FloatArray>()
+        val segmenter = SpeechSegmenter(Detector(), 1000, { _, _ -> }, { _, pcm, _ -> regions.add(pcm) })
+        segmenter.accept(FloatArray(94 * 512) { .1f })
+        segmenter.accept(FloatArray(16000))
+        segmenter.accept(FloatArray(4000) { .2f })
+        segmenter.finishInput()
+        assertEquals(2, regions.size)
+        assertEquals(4000, regions[1].count { it == .2f })
+        assertFalse(regions.any { region -> region.all { it == 0f } })
+    }
+
+    @Test fun `standalone offline model finalizes without a streaming model`() {
+        val engine = object : FakeEngine() {
+            override val isStreaming = false
+            override fun accept(samples: FloatArray): String = error("standalone must not stream")
+            override fun finishStream(): String = error("standalone must not finalize a first pass")
+        }
+        val errors = mutableListOf<String>()
+        val session = LocalSpeechSession(engine, {}, { errors.add(it) })
+        session.acceptPcm(pcm(16000))
+        assertEquals("最终结果", session.finish())
+        assertTrue(errors.isEmpty())
+        assertTrue(session.isIdle)
+    }
+
+    @Test fun `stop flushes partial frame and does not wait a fixed spinner interval`() {
+        val engine = FakeEngine()
+        val errors = mutableListOf<String>()
+        val s = LocalSpeechSession(engine, {}, { errors.add(it) })
+        s.acceptPcm(pcm(16000 + 73))
+        assertEquals("第一遍", s.finish())
+        assertEquals(listOf(16073), engine.finalizedSizes)
+        assertTrue(errors.isEmpty()); assertTrue(s.isIdle)
+    }
+    @Test fun `slow second pass does not block capture or first pass`() {
+        val entered = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val engine = object : FakeEngine(true) {
+            override fun refine(samples: FloatArray): String { entered.countDown(); release.await(2, TimeUnit.SECONDS); return "校正" }
+        }
+        val s = LocalSpeechSession(engine, {}, {})
+        s.acceptPcm(pcm(16000)); s.acceptPcm(pcm(24000, 0)) // > 1 s pause ends the region (streaming minimum 1000 ms)
+        assertTrue(entered.await(2, TimeUnit.SECONDS))
+        s.acceptPcm(pcm(16000)); release.countDown()
+        assertEquals("校正 校正", s.finish())
+    }
+    @Test fun `cancel rejects a late multilingual correction`() {
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        val output = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val engine = object : FakeEngine(true) {
+            override fun refine(samples: FloatArray): String { entered.countDown(); release.await(2, TimeUnit.SECONDS); return "迟到" }
+        }
+        val s = LocalSpeechSession(engine, { output.add(it) }, {})
+        s.acceptPcm(pcm(16000)); s.acceptPcm(pcm(24000, 0)) // > 1 s pause ends the region (streaming minimum 1000 ms)
+        assertTrue(entered.await(2, TimeUnit.SECONDS)); s.cancel(); val count = output.size
+        release.countDown(); s.awaitIdle()
+        assertEquals(count, output.size); assertFalse(output.contains("迟到"))
+    }
+    @Test fun `failed multilingual correction never promotes bilingual preview`() {
+        val errors = mutableListOf<String>()
+        val engine = object : FakeEngine(true) { override fun refine(samples: FloatArray): String = error("decode failed") }
+        val s = LocalSpeechSession(engine, {}, { errors.add(it) })
+        s.acceptPcm(pcm(16000))
+        assertEquals("", s.finish()); assertEquals(1, errors.size)
+    }
+
+    private class RecordingEngine : FakeEngine(true) {
+        val refined = java.util.Collections.synchronizedList(mutableListOf<Int>())
+        override fun refine(samples: FloatArray): String { refined.add(samples.size); return "句" }
+    }
+
+    @Test fun `whole sentence corrects a 10 s phrase once while off keeps the 6 s cuts`() {
+        for (whole in listOf(false, true)) {
+            val engine = RecordingEngine()
+            val errors = mutableListOf<String>()
+            val regions = java.util.Collections.synchronizedList(mutableListOf<Int>())
+            val s = LocalSpeechSession(engine, {}, { errors.add(it) }, { _, size, _ -> regions.add(size) }, wholeSentence = whole)
+            s.acceptPcm(pcm(160000)); s.acceptPcm(pcm(24000, 0)) // 10 s speech, then a 1.5 s pause
+            s.finish()
+            assertTrue(errors.isEmpty())
+            if (whole) {
+                assertEquals(1, regions.size)
+                assertTrue(regions.single() >= 160000)
+                assertEquals(listOf(regions.single(), 184000), engine.refined.toList()) // the phrase, then the whole input re-read
+            } else {
+                assertTrue("off: $regions", regions.size >= 2)
+                assertTrue(regions.all { it <= (6000 + 2000) * 16 })
+                assertEquals(regions.toList(), engine.refined.toList()) // no re-read
+            }
+        }
+    }
+
+    @Test fun `whole sentence still cuts continuous speech within the 30 s SenseVoice limit`() {
+        val engine = RecordingEngine()
+        val regions = java.util.Collections.synchronizedList(mutableListOf<Int>())
+        val stops = java.util.Collections.synchronizedList(mutableListOf<Boolean>())
+        val s = LocalSpeechSession(engine, {}, {}, { _, size, b -> regions.add(size); stops.add(b == SpeechBoundary.STOP) }, wholeSentence = true)
+        repeat(45) { s.acceptPcm(pcm(16000)) } // 45 s without any pause
+        s.finish()
+        assertTrue(regions.toString(), regions.size >= 2)
+        // The hard cut lands on the next 32 ms frame: at most 30 s + 512 samples.
+        assertTrue(regions.toString(), regions.all { it <= (WHOLE_SENTENCE_MAX_SEGMENT_MS + 2000) * 16 + 512 })
+        assertTrue(regions.toString(), regions.first() >= WHOLE_SENTENCE_MAX_SEGMENT_MS * 16)
+        assertEquals(45 * 16000, regions.sum()) // every sample decoded exactly once per pass
+        // The end-of-input re-read covers the same samples in blocks of at most 28 s.
+        // The stop region is left to the re-read; earlier regions were each decoded once.
+        val reread = engine.refined.drop(stops.count { !it })
+        assertEquals(45 * 16000, reread.sum()); assertTrue(reread.all { it <= WHOLE_SENTENCE_MAX_SEGMENT_MS * 16 })
+    }
+
+    @Test fun `whole sentence has no effect without a second pass`() {
+        val counts = listOf(false, true).map { whole ->
+            val engine = FakeEngine(false)
+            LocalSpeechSession(engine, {}, {}, wholeSentence = whole).apply { repeat(20) { acceptPcm(pcm(16000)) }; finish() }
+            engine.finalizedSizes.size
+        }
+        assertEquals(counts[0], counts[1])
+    }
+
+    @Test fun `cancel in whole sentence mode leaves no late correction`() {
+        val entered = CountDownLatch(1); val release = CountDownLatch(1)
+        val output = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val engine = object : FakeEngine(true) {
+            override fun refine(samples: FloatArray): String { entered.countDown(); release.await(2, TimeUnit.SECONDS); return "迟到" }
+        }
+        val s = LocalSpeechSession(engine, { output.add(it) }, {}, wholeSentence = true)
+        s.acceptPcm(pcm(160000)); s.acceptPcm(pcm(24000, 0))
+        assertTrue(entered.await(2, TimeUnit.SECONDS)); s.cancel(); val count = output.size
+        release.countDown(); s.awaitIdle()
+        assertEquals(count, output.size); assertFalse(output.contains("迟到"))
+        assertTrue(s.isIdle)
+    }
+}
