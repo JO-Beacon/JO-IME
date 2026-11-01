@@ -85,36 +85,6 @@ class CustomLayoutSymbolsTest {
         assertEquals(keys, CustomLayoutSymbols.rows(layout(merged)).flatten())
     }
 
-    @Test fun savedSymbolsShowOnTheKeyboardOfThatLayoutOnly() {
-        val layout = layout(merged)
-        val keys = CustomLayoutSymbols.keys(layout)
-        CustomLayoutSymbols.save(context, layout, mapOf("up.qw" to "★", "down.as" to ""))
-        use(merged)
-        assertEquals("★", up("qw").value)
-        assertEquals("★", up("qw").label)
-        assertEquals(GestureAction.COMMIT, up("qw").action)
-        // Shift、分体拆开的 w 沿用 qw 的角标。
-        assertEquals("★", up("w").value)
-        // 留空就是这一格不放符号。
-        assertEquals("", down("as").value)
-        assertEquals(GestureAction.NONE, down("as").action)
-        // 没改的位置还是预设。
-        assertEquals(MergedKeySymbols.down(keys).getValue("qw"), down("qw").value)
-        assertEquals("2", up("e").value)
-        // 设置页读到的就是键盘上的。
-        val shown = KeysConfigHelper.customLayoutSymbolEditorValues(context, layout)
-        for (key in keys) {
-            assertEquals("$key 上", up(key).value, shown.getValue("up.$key"))
-            assertEquals("$key 下", down(key).value, shown.getValue("down.$key"))
-        }
-        // 别的自建布局、内置 14 键不受影响。
-        use(other)
-        assertEquals("1", up("q").value)
-        use("pinyin_14jian")
-        assertEquals("1", up("qw").value)
-        assertEquals(FourteenKeySymbols.down.getValue("as"), down("as").value)
-    }
-
     @Test fun restoringAndDeletingDropTheLayoutsChanges() {
         val layout = layout(merged)
         CustomLayoutSymbols.save(context, layout, mapOf("up.qw" to "★"))

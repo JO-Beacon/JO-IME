@@ -116,38 +116,4 @@ class CornerHintConsistencyTest {
         }
     }
 
-    @Test fun mergedKeysFollowOneTableInReadingOrder() {
-        for (board in mergedBoards) {
-            use(board)
-            val keys = letterKeys(board)
-            val ups = keys.map { hints(board, it).first }
-            val downs = keys.map { hints(board, it).second }
-            assertEquals("$board 前 10 个键上角标 1-0", "1234567890", ups.take(10).joinToString(""))
-            assertEquals("$board 上角标按共用表", keys.map { MergedKeySymbols.up(keys).getValue(it) }, ups)
-            assertEquals("$board 下角标按共用表", keys.map { MergedKeySymbols.down(keys).getValue(it) }, downs)
-            assertEquals("$board 角标不重复", (ups + downs).size, (ups + downs).toSet().size)
-            if (board.schema != merged) for ((open, close) in pairs) for (side in listOf(ups, downs))
-                assertEquals("$board $open$close 成对出现", open in side, close in side)
-            // Shift 拆开的单字母沿用所在合并键的角标。
-            for (key in keys.filter { it.length == 2 }) for (letter in key.map(Char::toString)) {
-                val single = KeysConfigHelper.getKeyGesture(letter, false)!!
-                assertEquals("$board $letter 上", MergedKeySymbols.up(keys).getValue(key), single.swipeUp!!.value)
-                assertEquals("$board $letter 下", MergedKeySymbols.down(keys).getValue(key), single.swipeDown!!.value)
-            }
-        }
-    }
-
-    @Test fun nineKeyAndStrokeShowOnlyTheirDigitAndBindNothingBelow() {
-        // 九键、笔画的键面已经印着字母/笔画，角上只放数字（上角标）；没有下角标，也就没有能滑出看不见的东西的下滑。
-        for (digit in 1..9) {
-            val t9 = KeysConfigHelper.getT9KeyGesture(digit.toString())!!
-            assertEquals(digit.toString(), t9.swipeUp!!.value)
-            assertNull("九键 $digit 没有下角标", t9.swipeDown)
-        }
-        for ((index, key) in listOf("一", "丨", "丿", "丶", "乛", "*", "分词", "，", "英").withIndex()) {
-            val stroke = KeysConfigHelper.getStrokeKeyGesture(key)!!
-            assertEquals((index + 1).toString(), stroke.swipeUp!!.value)
-            assertNull("笔画 $key 没有下角标", stroke.swipeDown)
-        }
-    }
 }

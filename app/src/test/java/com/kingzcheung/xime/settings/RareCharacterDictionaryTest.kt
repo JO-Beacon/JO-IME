@@ -16,9 +16,6 @@ class RareCharacterDictionaryTest {
         assertFalse(File(root, "cn_dicts/41448.dict.yaml").exists())
         assertTrue(File(root, "rime_ice.schema.yaml").readText().contains("    - lua_translator@*cyime_rare_chars\n"))
         assertTrue(File(root, "lua/cyime_rare_chars.lua").isFile)
-        // Nine-key full pinyin reads it too (digits of one syllable); 14 keys and double pinyin do not.
-        assertTrue(File("src/main/assets/rime_chinese/t9_pinyin.schema.yaml").readText().contains("    - lua_translator@*cyime_rare_chars\n"))
-        assertFalse(File("src/main/assets/rime_chinese/pinyin_14jian.schema.yaml").readText().contains("cyime_rare_chars"))
     }
 
     @Test fun onlyMissingBmpCharactersWithKnownReadings() {

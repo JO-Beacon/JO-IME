@@ -23,10 +23,6 @@ internal val MenuSettingsTitles: Map<ToolbarButton, String> = mapOf(
     ToolbarButton.INCOGNITO to "无痕模式",
     ToolbarButton.TRADITIONAL to "繁体输出",
     ToolbarButton.GLIDE to "滑行输入",
-    ToolbarButton.T9_FLICK to "拂动选字母",
-    ToolbarButton.FOURTEEN_SWIPE to "左右滑动选字母",
-    ToolbarButton.KANA_HINTS to "假名方向提示",
-    ToolbarButton.FLICK_DISC to "拂动时显示方向圆盘",
 )
 
 /** [item] 长按要去的设置；插件按钮去该插件的详情页。没有对应设置时为 null。 */

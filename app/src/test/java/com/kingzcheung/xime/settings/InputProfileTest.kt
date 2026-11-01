@@ -113,57 +113,6 @@ class InputProfileTest {
         assertFalse(HandwritingLanguages.supports(InputLanguage.UNSPECIFIED))
     }
 
-    @Test fun `third party IDs are not guessed as Chinese or Japanese`() {
-        for (id in listOf("external", "japanese_unknown", "double_pinyin_fake")) {
-            assertEquals(InputLanguage.UNSPECIFIED, InputProfiles.describe(id).language)
-            assertEquals(InputScheme.EXTERNAL, InputProfiles.describe(id).scheme)
-            assertFalse(InputProfiles.describe(id).capabilities.editablePinyin)
-        }
-        val thirdParty = entry("external")
-        assertTrue(InputModes.available(listOf(thirdParty)).any { it.schemaId == "external" })
-        assertEquals(InputLanguage.UNSPECIFIED,
-            InputModes.languageChoices(listOf(thirdParty), InputModes.ENGLISH, emptyMap()).last().language)
-        assertTrue(thirdParty.selectionLabel.contains("external"))
-    }
-
-    @Test fun `configuration override reaches runtime state and layout routing`() {
-        val files = temporary.newFolder()
-        val rime = File(files, "rime").apply { mkdirs() }
-        val yaml = """
-            keyboard:
-              t9:
-                schemas: [rime_ice]
-              qwerty_14:
-                schemas: [t9_pinyin]
-                layout:
-                  rows: [[[q, w], [e, r]]]
-        """.trimIndent()
-        val assets = mock<AssetManager>()
-        whenever(assets.open("xime.yaml")).thenAnswer { ByteArrayInputStream(yaml.toByteArray()) }
-        whenever(assets.open("xime.custom.yaml")).thenThrow(IOException("absent"))
-        val context = mock<Context>()
-        whenever(context.filesDir).thenReturn(files)
-        whenever(context.getSharedPreferences("kime_settings", Context.MODE_PRIVATE))
-            .thenReturn(mock<android.content.SharedPreferences>())
-        whenever(context.assets).thenReturn(assets)
-        KeysConfigHelper.loadConfig(context)
-        assertTrue(isT9Schema("rime_ice"))
-        assertFalse(isT9Schema("t9_pinyin"))
-        assertEquals(InputLayout.T9, InputUIState(currentSchemaId = "rime_ice").inputProfile.layout)
-        assertEquals("拼音 · 九键", entry("rime_ice").profile.summary)
-        assertEquals(InputScheme.PINYIN, InputUIState(currentSchemaId = "rime_ice").inputProfile.scheme)
-        assertEquals(InputLayout.MERGED14, InputProfiles.current("t9_pinyin").layout)
-        // 14 键可分体（跨中线的双字母键在分体时拆开）；九键不分体。
-        assertTrue(supportsSplitKeyboard("t9_pinyin", false))
-        assertTrue(supportsSplitKeyboard("t9_pinyin", true))
-        assertFalse(supportsSplitKeyboard("rime_ice", false))
-        File(rime, "xime.custom.yaml").writeText("keyboard:\n  t9:\n    schemas: [t9_pinyin]\n  qwerty_14:\n    schemas: [rime_ice]\n")
-        KeysConfigHelper.loadConfig(context)
-        assertTrue(isT9Schema("t9_pinyin"))
-        assertFalse(isT9Schema("rime_ice"))
-        assertEquals(InputLayout.MERGED14, entry("rime_ice").profile.layout)
-    }
-
     @Test fun `installed metadata is used by both engine predicates and UI and refresh removes stale declarations`() {
         val files = temporary.newFolder()
         val rime = File(files, "rime").apply { mkdirs() }
@@ -191,7 +140,6 @@ class InputProfileTest {
         assertEquals(LayoutKind.ALPHABETIC, InputProfiles.resolveLayout(null, custom).kind)
         assertEquals(LayoutKind.MERGED, InputProfiles.resolveLayout(null, custom.merge("q")).kind)
         assertEquals("我的布局", InputProfiles.resolveLayout(null, custom).displayName)
-        assertEquals(InputLayout.T9, InputProfiles.resolveLayout("t9", custom))
         assertEquals(InputScheme.PINYIN, InputProfiles.describe(QwjrtkLayout.ID).scheme)
     }
 

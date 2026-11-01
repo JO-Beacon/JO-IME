@@ -137,14 +137,10 @@ class ShiftHoldTypingTest {
 
     @Test fun english26WithGlide() { show(ascii = true, prefs = KeyboardInputPreferences(glideTyping = true)); typeCyLM() }
 
-    @Test fun pinyin14() { show("pinyin_14jian"); typeCyLM(expected = "CtyLM") }
-
     @Test fun phoneWidth() { show(width = 360, height = 240); typeCyLM() }
 
     /** 按住的手指常会轻微移动：超过触摸容差也不能松开 Shift。 */
     @Test fun heldFingerDrifts26() { show(); typeCyLM(Offset(12f, -6f)) }
-
-    @Test fun heldFingerDrifts14() { show("pinyin_14jian"); typeCyLM(Offset(12f, -6f), "CtyLM") }
 
     @Test fun heldFingerDriftsEnglishGlide() {
         show(ascii = true, prefs = KeyboardInputPreferences(glideTyping = true)); typeCyLM(Offset(12f, -6f))
@@ -204,20 +200,6 @@ class ShiftHoldTypingTest {
     }
 
     /** 14 键 Shift 亮着时双字母键拆成单字母键：点 n 出 N，不再只出 B（10-27）；Shift 用完键又合回去。 */
-    @Test fun fourteenKeyShiftGivesTheTappedLetterOfAPair() {
-        show("pinyin_14jian")
-        val shift = center("shift-key")
-        rule.onRoot().performTouchInput { down(0, shift); up(0) }
-        rule.waitForIdle()
-        assertTrue("单次 Shift 时 bn 拆成 b、n", exists("qwerty-key:n"))
-        tap('n')
-        assertFalse("打完一个大写，键合回 bn", exists("qwerty-key:n"))
-        holdShift()
-        tap('n'); tap('b'); tap('w')
-        releaseShift()
-        assertEquals("NNBW", typed.toString())
-    }
-
     private fun exists(tag: String) = runCatching { rule.onNodeWithTag(tag, true).fetchSemanticsNode() }.isSuccess
 
     /** 英文键盘里每次中英状态同步都会重置 Shift：按着时同样不能松开。 */

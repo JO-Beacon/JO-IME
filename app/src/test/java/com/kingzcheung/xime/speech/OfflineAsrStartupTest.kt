@@ -132,36 +132,6 @@ class OfflineAsrStartupTest {
         }
     }
 
-    @Test fun eachSessionReselectsForItsLanguageAndTheCurrentModelPreference() {
-        var preferredModel = SpeechModelCatalog.ZIPFORMER_TWO_PASS
-        val selectedLanguages = mutableListOf<InputLanguage>()
-        withBackend({ language ->
-            selectedLanguages += language
-            // Retain the real compatibility policy: a Chinese two-pass model cannot recognize Japanese.
-            selection(SpeechLanguages.select(language, preferredModel) { true })
-        }) { backend, client, managers ->
-            assertTrue(backend.initialize(InputLanguage.CHINESE))
-            assertTrue(backend.start(InputLanguage.JAPANESE))
-            preferredModel = SpeechModelCatalog.PARAFORMER
-            assertTrue(backend.start(InputLanguage.CHINESE))
-
-            assertEquals(listOf(InputLanguage.CHINESE, InputLanguage.JAPANESE, InputLanguage.CHINESE), selectedLanguages)
-            assertEquals(3, managers.constructed().size)
-            managers.constructed().zip(selectedLanguages).forEach { (manager, language) ->
-                verify(manager).selectionForLanguage(language)
-            }
-            val ordered = inOrder(client)
-            runBlocking {
-                ordered.verify(client).startAsr(eq(SpeechModelCatalog.ZIPFORMER_TWO_PASS), any(), eq(InputLanguage.CHINESE))
-                ordered.verify(client).startAsr(eq(SpeechModelCatalog.SENSEVOICE), any(), eq(InputLanguage.JAPANESE))
-                ordered.verify(client).startAsr(eq(SpeechModelCatalog.PARAFORMER), any(), eq(InputLanguage.CHINESE))
-                verify(client, times(3)).startAsr(any(), any(), anyOrNull())
-                verify(client, never()).startAsr(any(), any(), isNull())
-                verify(client).stopAsr()
-            }
-        }
-    }
-
     @Test fun unavailableWarmupResourcesDoNotPreventARealStartFromRetryingSelection() {
         var attempts = 0
         val errors = mutableListOf<String>()

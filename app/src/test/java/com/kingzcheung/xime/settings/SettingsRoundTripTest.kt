@@ -53,7 +53,6 @@ class SettingsRoundTripTest {
         Case("智能联想", false, true, S::setSmartPredictionEnabled, S::isSmartPredictionEnabled),
         Case("空格上屏后联想", false, true, S::setSpaceCommitAssociationEnabled, S::isSpaceCommitAssociationEnabled),
         Case("单字联想", true, false, S::setAssociationSingleMode, S::isSingleAssociationMode),
-        Case("退格直接删字", true, false, S::setDeleteSkipsAssociation, S::isDeleteSkipsAssociation),
         Case("删字后给同音字", true, false, S::setDeleteRecovery, S::isDeleteRecovery),
         Case("上方角标提示", false, true, S::setSwipeUpHintsEnabled, S::isSwipeUpHintsEnabled),
         Case("下方角标提示", false, true, S::setSwipeDownHintsEnabled, S::isSwipeDownHintsEnabled),
@@ -95,7 +94,12 @@ class SettingsRoundTripTest {
         assertEquals(changed, read.copy(frostedGlass = changed.frostedGlass, keyGlowEnabled = changed.keyGlowEnabled,
             keyAnimationEnabled = changed.keyAnimationEnabled, showPressBubble = changed.showPressBubble,
             splitKeyboardEnabled = changed.splitKeyboardEnabled, splitGapPortrait = changed.splitGapPortrait,
-            splitGapLandscape = changed.splitGapLandscape, sideSymbols = changed.sideSymbols))
+            splitGapLandscape = changed.splitGapLandscape, sideSymbols = changed.sideSymbols,
+            // JO-IME 固定下来的项：读回来永远是这几项，不跟随写入值。
+            spaceHold = changed.spaceHold, cursorGesture = changed.cursorGesture,
+            symbolInputMode = changed.symbolInputMode, reverseSymbolSwipe = changed.reverseSymbolSwipe,
+            clearAllWhileComposing = changed.clearAllWhileComposing, clearBeforeCursorOnly = changed.clearBeforeCursorOnly,
+            letterLongPressMenu = changed.letterLongPressMenu))
     }
 
     /**

@@ -17,8 +17,7 @@ class MenuSettingsLinksTest {
     /** 除纯动作和临时状态外，每个菜单功能都有设置项；新增菜单功能时要在这里决定归属。 */
     @Test fun onlyActionsAndTransientStatesHaveNoSetting() {
         val noSetting = setOf(
-            ToolbarButton.EDIT, ToolbarButton.FULL_SHAPE, ToolbarButton.SETTINGS, ToolbarButton.EMOJI, ToolbarButton.SYMBOL,
-        )
+            ToolbarButton.EDIT, ToolbarButton.FULL_SHAPE, ToolbarButton.SETTINGS, ToolbarButton.EMOJI, ToolbarButton.SYMBOL, ToolbarButton.T9_FLICK, ToolbarButton.FOURTEEN_SWIPE, ToolbarButton.KANA_HINTS, ToolbarButton.FLICK_DISC)
         assertEquals(ToolbarButton.entries.toSet() - noSetting, MenuSettingsTitles.keys)
         for (b in noSetting) assertNull(b.id, menuSettingsEntry(ToolbarButtonItem.Builtin(b)))
     }

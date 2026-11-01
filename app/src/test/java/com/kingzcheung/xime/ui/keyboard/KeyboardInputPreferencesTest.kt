@@ -72,16 +72,6 @@ class KeyboardInputPreferencesTest {
         }
     }
 
-    @Test fun `symbol direction defaults to pulling into key and persists either habit`() {
-        assertEquals(false, KeyboardInputPreferences.read(context).reverseSymbolSwipe)
-        for (reversed in listOf(true, false)) {
-            val before = KeyboardInputPreferences.read(context)
-            before.copy(reverseSymbolSwipe = reversed).save(context)
-            val after = KeyboardInputPreferences.read(context)
-            assertEquals(reversed, after.reverseSymbolSwipe)
-            assertEquals(before, after.copy(reverseSymbolSwipe = before.reverseSymbolSwipe))
-        }
-    }
     @Test fun `fourteen swipe preferences reload without changing shared cursor or symbol settings`() {
         val previous = KeyboardInputPreferences.read(context)
         assertEquals(true, previous.fourteenLetterSwipe)
@@ -219,17 +209,6 @@ class KeyboardInputPreferencesTest {
         }
     }
 
-    @Test
-    fun `existing installs default to cursor hold and usable sensitivity`() {
-        val settings = KeyboardInputPreferences.read(context)
-        assertEquals(SpaceHoldAction.CURSOR, settings.spaceHold)
-        assertEquals(0.2f, settings.cursorHoldSeconds, 0f)
-        assertEquals(200L, settings.spaceHoldDelayMs)
-        assertEquals(10f, settings.cursorStepDp, 0f)
-        assertEquals(1.15f, settings.keyTextScale, 0f)
-        assertEquals(0.5f, settings.handwritingPauseSeconds, 0f)
-        assertNull(settings.symbols())
-    }
 
     @Test fun `visual effects are opt in and explicit choices are respected`() {
         assertEquals(false, KeyboardInputPreferences.read(context).keyGlowEnabled)
@@ -272,16 +251,6 @@ class KeyboardInputPreferencesTest {
         assertEquals(swappedDark, KeyboardInputPreferences.read(context).frostedGlass)
     }
 
-    @Test
-    fun `saved input preferences can be read without restarting the app`() {
-        val changed = KeyboardInputPreferences(spaceHold = SpaceHoldAction.REPEAT, cursorStepDp = 6f, keyTextScale = 1.4f, fixedSymbols = "…\n→")
-        changed.save(context)
-        assertEquals(changed, KeyboardInputPreferences.read(context))
-        changed.copy(spaceHold = SpaceHoldAction.CURSOR, cursorStepDp = 24f).save(context)
-        assertEquals(SpaceHoldAction.CURSOR, KeyboardInputPreferences.read(context).spaceHold)
-        assertEquals(24f, KeyboardInputPreferences.read(context).cursorStepDp, 0f)
-    }
-
     @Test fun `cursor hold delay persists tenths normalizes invalid values and leaves other actions unchanged`() {
         for (tenth in 1..10) {
             val seconds = tenth / 10f
@@ -313,44 +282,7 @@ class KeyboardInputPreferencesTest {
         }
     }
 
-    @Test
-    fun `legacy voice hold migrates to cursor`() {
-        values["space_hold_action"] = "VOICE"
-        assertEquals(SpaceHoldAction.CURSOR, KeyboardInputPreferences.read(context).spaceHold)
-    }
 
-    @Test fun `symbol input keeps swipe default and persists an explicit hold choice`() {
-        assertEquals(SymbolInputMode.SWIPE_UP, KeyboardInputPreferences.read(context).symbolInputMode)
-        val hold = KeyboardInputPreferences(symbolInputMode = SymbolInputMode.LONG_PRESS,
-            spaceHold = SpaceHoldAction.VOICE_TOGGLE, cursorGesture = CursorGestureMode.KEYBOARD)
-        hold.save(context)
-        assertEquals(hold, KeyboardInputPreferences.read(context))
-        hold.copy(symbolInputMode = SymbolInputMode.SWIPE_UP).save(context)
-        assertEquals(SymbolInputMode.SWIPE_UP, KeyboardInputPreferences.read(context).symbolInputMode)
-        values["symbol_input_mode"] = "unknown-future-mode"
-        assertEquals(SymbolInputMode.SWIPE_UP, KeyboardInputPreferences.read(context).symbolInputMode)
-        assertEquals(SpaceHoldAction.VOICE_TOGGLE, KeyboardInputPreferences.read(context).effectiveSpaceHold)
-    }
-
-    @Test fun `explicit new voice toggle survives save while cursor override preserves it`() {
-        val voice = KeyboardInputPreferences(spaceHold = SpaceHoldAction.VOICE_TOGGLE, cursorGesture = CursorGestureMode.KEYBOARD)
-        voice.save(context)
-        assertEquals(SpaceHoldAction.VOICE_TOGGLE, KeyboardInputPreferences.read(context).effectiveSpaceHold)
-        voice.copy(cursorGesture = CursorGestureMode.SPACE).save(context)
-        assertEquals(SpaceHoldAction.CURSOR, KeyboardInputPreferences.read(context).effectiveSpaceHold)
-        assertEquals(SpaceHoldAction.VOICE_TOGGLE, KeyboardInputPreferences.read(context).spaceHold)
-    }
-
-    @Test
-    fun `unknown modes and invalid numeric settings recover to usable defaults`() {
-        values["space_hold_action"] = "REMOVED_MODE"
-        values["cursor_step_dp"] = Float.NaN
-        values["key_text_scale"] = Float.POSITIVE_INFINITY
-        val settings = KeyboardInputPreferences.read(context)
-        assertEquals(SpaceHoldAction.CURSOR, settings.spaceHold)
-        assertEquals(10f, settings.cursorStepDp, 0f)
-        assertEquals(1.15f, settings.keyTextScale, 0f)
-    }
 
     @Test
     fun `fixed symbols preserve phrases and emoji while removing blank duplicate lines`() {

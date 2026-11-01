@@ -99,8 +99,6 @@ class FastRepeatedTapTest {
     }
 
     /** 14 键点双字母键提交整键：四下都要到。 */
-    @Test fun alternatingThumbs14() { show("pinyin_14jian"); alternatingThumbsUuru("uiuierui") }
-
     /** 后按下的手指先抬起：两下都算，顺序按按下的先后。 */
     @Test fun secondFingerLiftsFirst() {
         show()

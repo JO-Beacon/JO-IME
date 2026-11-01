@@ -113,7 +113,7 @@ class SetupGuidePlanTest {
 
     @Test fun suggestionFollowsCurrentUse() {
         val f = facts(DeviceModelTier.ENHANCED).copy(streamingVoice = true, usesT9 = true)
-        assertEquals(SetupAnswers(VoiceUse.OFTEN, t9 = true, caption = false), SetupGuidePlanner.suggest(f))
+        assertEquals(SetupAnswers(VoiceUse.OFTEN, t9 = false, caption = false), SetupGuidePlanner.suggest(f))
         assertEquals(VoiceUse.NEVER, SetupGuidePlanner.suggest(f.copy(sttEnabled = false)).voice)
         assertEquals(VoiceUse.SOMETIMES, SetupGuidePlanner.suggest(f.copy(tier = DeviceModelTier.LIGHT)).voice)
     }

@@ -98,38 +98,6 @@ class DeviceModelDefaultsTest {
         assertEquals(SpeechModelCatalog.SENSEVOICE, voice(setOf("ochwpro", SpeechModelCatalog.SENSEVOICE)))
     }
 
-    @Test fun senseVoiceDefaultNeedsNoDownloadAndGainsTheStreamingPreviewOnceParaformerIsThere() {
-        val stores = Stores()
-        val context = stores.context
-        whenever(context.filesDir).thenReturn(files.root)
-        stores.values()["device_default_voice_model"] = SpeechModelCatalog.SENSEVOICE
-        stores.values()[DeviceDefaults.VERSION] = 1
-        fun install(id: String, vararg names: String) = java.io.File(files.root, "models/$id").run {
-            mkdirs(); names.forEach { java.io.File(this, it).writeText("x") }
-        }
-        install(SpeechModelCatalog.SENSEVOICE, "model.int8.onnx", "tokens.txt")
-        val manager = AsrModelManager(context)
-        assertEquals(SpeechModelCatalog.SENSEVOICE, manager.getSelectedModelId(com.kingzcheung.xime.settings.InputLanguage.CHINESE))
-        assertFalse(SpeechModelCatalog.PARAFORMER in DefaultModelInstaller.requestedModelIds(context))
-        install(SpeechModelCatalog.PARAFORMER, "decoder.int8.onnx", "encoder.int8.onnx", "tokens.txt")
-        assertEquals(SpeechModelCatalog.TWO_PASS, manager.getSelectedModelId(com.kingzcheung.xime.settings.InputLanguage.CHINESE))
-        assertEquals(SpeechModelCatalog.TWO_PASS, manager.getSelectedModelId(com.kingzcheung.xime.settings.InputLanguage.ENGLISH))
-        // Paraformer has no Japanese; an explicit choice is never upgraded.
-        assertEquals(SpeechModelCatalog.SENSEVOICE, manager.getSelectedModelId(com.kingzcheung.xime.settings.InputLanguage.JAPANESE))
-        manager.setModel(SpeechModelCatalog.SENSEVOICE, com.kingzcheung.xime.settings.InputLanguage.CHINESE)
-        assertEquals(SpeechModelCatalog.SENSEVOICE, manager.getSelectedModelId(com.kingzcheung.xime.settings.InputLanguage.CHINESE))
-    }
-
-    @Test fun legacyJapaneseChoiceDoesNotTurnTheChineseDefaultIntoZipformer() {
-        val stores = Stores()
-        whenever(stores.context.filesDir).thenReturn(files.root)
-        stores.values("asr_model")["selected_model"] = SpeechModelCatalog.ZIPFORMER_JA
-        assertEquals(SpeechModelCatalog.PARAFORMER,
-            AsrModelManager(stores.context).getSelectedModelId(com.kingzcheung.xime.settings.InputLanguage.CHINESE))
-        assertEquals(SpeechModelCatalog.ZIPFORMER_JA, AsrModelManager(stores.context).getSelectedModelId())
-        assertFalse(stores.values("asr_model").containsKey("selected_model_zh"))
-    }
-
     @Test fun missingFrequencyFallsBackToMemoryAndCoresButMissingEssentialsStayConservative() {
         assertEquals(DeviceModelTier.ENHANCED, DeviceModelProfiles.choose(device(frequency = null)).tier)
         assertEquals(DeviceModelTier.STANDARD, DeviceModelProfiles.choose(device(4 * gib, frequency = null)).tier)

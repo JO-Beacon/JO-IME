@@ -1,9 +1,26 @@
-name: Build and Release APK
+name: Build Android APK
 
 on:
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: '上传到 GitHub Release 草稿'
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: 'Release 标签，例如 v0.1.0'
+        required: false
+        default: ''
+        type: string
+      prerelease:
+        description: '标记为预发布版本'
+        required: false
+        default: false
+        type: boolean
   push:
     tags:
-      - 'v*.*.*'
+      - 'v[0-9]+.[0-9]+.[0-9]+'
 
 permissions:
   contents: write
@@ -135,9 +152,29 @@ jobs:
             echo "Verified: $apk"
           done
 
-      - name: Get version from tag
+      - name: Resolve version
         id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag || '' }}
+        run: |
+          set -euo pipefail
+          version_name=$(sed -n 's/.*versionName = "\(.*\)".*/\1/p' app/build.gradle.kts | head -1)
+          tag="${GITHUB_REF_NAME:-}"
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            test "$tag" = "v$version_name" || {
+              echo "Tag $tag does not match versionName $version_name." >&2
+              exit 1
+            }
+          elif [ -n "${RELEASE_TAG}" ]; then
+            test "$RELEASE_TAG" = "v$version_name" || {
+              echo "Release tag must be v$version_name." >&2
+              exit 1
+            }
+            tag="$RELEASE_TAG"
+          fi
+          echo "VERSION=$version_name" >> "$GITHUB_OUTPUT"
+          echo "TAG=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Find APKs and plugin XIPKs
         id: find_apks
@@ -155,16 +192,26 @@ jobs:
             echo "::warning::No plugin XIPKs found!"
           fi
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v3
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
-          name: CyIME ${{ steps.get_version.outputs.VERSION }}
-          generate_release_notes: false
+          name: JO-IME-APKs
+          path: |
+            app/build/outputs/apk/distribution/JO-IME-*.apk
+            build/plugin-release/*.xipk
+          if-no-files-found: error
+
+      - name: Upload assets to draft GitHub Release
+        if: ${{ github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && inputs.publish_release && inputs.release_tag != '') }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.get_version.outputs.TAG }}
+          name: JO-IME ${{ steps.get_version.outputs.TAG }}
+          body_path: .github/release-notes/${{ steps.get_version.outputs.TAG }}.md
+          draft: true
+          prerelease: ${{ github.event_name == 'workflow_dispatch' && inputs.prerelease || false }}
           files: |
             ${{ steps.find_apks.outputs.main_apks }}
             ${{ steps.find_apks.outputs.plugin_xipks }}
-          overwrite: true
-          draft: false
-          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

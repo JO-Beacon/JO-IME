@@ -8,6 +8,9 @@
 
 Not a general-purpose IME: Chinese is 26-key full pinyin only, the only languages are Chinese and English, and settings are kept to a minimum.
 
+> This is an independently maintained branch, not an official CyIME release.
+
+
 ## Download and install
 
 Requires Android 9.0 (API 28) or later. Packages are ARM64 only.

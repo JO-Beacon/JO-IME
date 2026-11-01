@@ -25,7 +25,7 @@ class QwjrtkLayoutTest {
     }
 
     @Test fun explicitlyEnabledSampleRespectsChosenOrder() {
-        val existing = listOf("t9_pinyin", "rime_ice", "double_pinyin_flypy")
+        val existing = listOf("rime_ice")
         val modes = (listOf(QwjrtkLayout.ID) + existing).map { SchemaInfo(it, it, "", "", "") }
         val chosenOrder = listOf(QwjrtkLayout.ID) + existing
         val userSorted = InputModes.available(modes, chosenOrder)

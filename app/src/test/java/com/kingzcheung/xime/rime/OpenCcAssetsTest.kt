@@ -23,7 +23,6 @@ class OpenCcAssetsTest {
     @Test fun everyTraditionalizeConfigShipsWithItsTables() {
         val schemas = File("src/main/assets/rime_chinese").listFiles { f -> f.name.endsWith(".schema.yaml") }!!.toList()
         val referenced = schemas.flatMap { configsOf(it.readText()) }.toSet()
-        assertTrue("九键、14 键应引用台湾正体配置", "cyime_s2tw.json" in referenced)
         // 26 键和双拼由 tasks-chinese.gradle.kts 从 rime-ice 生成，同样改成这张表。
         assertTrue(File("build-logic/tasks-chinese.gradle.kts").readText().contains("opencc_config: cyime_s2tw.json"))
         for (config in referenced + setOf("s2t.json", "s2tw.json", "s2hk.json", "cyime_s2tw.json")) {

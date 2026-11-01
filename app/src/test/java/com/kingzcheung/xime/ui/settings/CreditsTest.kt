@@ -19,7 +19,7 @@ class CreditsTest {
     /** 用户点名要写清楚的来源（10-31）：fork 来源、LCCC 语料、雾凇、三星键盘、Gboard、首道双拼。 */
     @Test fun namedSourcesAreListed() {
         val names = items.map { it.name }
-        for (name in listOf("Xime", "LCCC 中文对话语料", "雾凇拼音", "三星键盘", "Gboard", "首道双拼"))
+        for (name in listOf("CyIME", "Xime", "LCCC 中文对话语料", "雾凇拼音", "三星键盘", "Gboard"))
             assertTrue("缺少 $name", name in names)
     }
 

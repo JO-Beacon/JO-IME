@@ -33,45 +33,6 @@ class QwertySwipeSymbolsTest {
     }
     @org.junit.After fun resetActiveProfile() { KeysConfigHelper.setActiveKeyboardSchema("") }
 
-    @Test fun japaneseAndNineKeyDoNotReceiveAlphabeticPreset() {
-        val original = KeysConfigHelper.parseKeyboardYamlSection(defaults, "qwerty")!!["a"]
-        KeysConfigHelper.setActiveKeyboardSchema("japanese")
-        assertEquals(KeysConfigHelper.parseKeyboardYamlSection(defaults, "qwerty_japanese")!!["a"],
-            KeysConfigHelper.getKeyGesture("a", false))
-        KeysConfigHelper.setActiveKeyboardSchema("t9")
-        assertEquals(LayoutKind.T9, InputProfiles.current("t9").layout.kind)
-        assertEquals(original, KeysConfigHelper.getKeyGesture("a", false))
-    }
-
-    @Test fun fourteenKeysUseTheirOwnSymbolsPerKey() {
-        // 14 键按键配角标：双字母键整个键一套，不再分左右两半借 26 键字母的（用户 10-30）。
-        for (schema in listOf("pinyin_14jian", "double_pinyin_flypy_14jian")) {
-            KeysConfigHelper.setActiveKeyboardSchema(schema)
-            assertEquals(InputLayout.MERGED14, InputProfiles.current(schema).layout)
-            for (key in FourteenKeySymbols.keys) {
-                val gesture = KeysConfigHelper.getKeyGesture(key, false)!!
-                assertEquals("$schema $key 上", FourteenKeySymbols.up.getValue(key), gesture.swipeUp!!.value)
-                assertEquals("$schema $key 下", FourteenKeySymbols.down.getValue(key), gesture.swipeDown!!.value)
-                assertEquals(GestureAction.COMMIT, gesture.swipeUp.action)
-                assertEquals(GestureAction.COMMIT, gesture.swipeDown.action)
-                // 点按与长按仍是 14 键自己的配置。
-                assertEquals(key, gesture.tap!!.label)
-                assertNotNull(gesture.longPress)
-                // Shift 或分体拆开的单字母沿用原来那个键的角标。
-                for (letter in key.map(Char::toString)) {
-                    val single = KeysConfigHelper.getKeyGesture(letter, false)!!
-                    assertEquals("$schema $letter 上", FourteenKeySymbols.up.getValue(key), single.swipeUp!!.value)
-                    assertEquals("$schema $letter 下", FourteenKeySymbols.down.getValue(key), single.swipeDown!!.value)
-                }
-            }
-            // 空格旁的逗号键不是字母，保持 14 键配置。
-            assertEquals("。", KeysConfigHelper.getKeyGesture("'", false)!!.swipeUp!!.label)
-        }
-        // 26 键不受影响。
-        KeysConfigHelper.setActiveKeyboardSchema("rime_ice")
-        assertEquals(QwertySwipeSymbols.up.getValue("e"), KeysConfigHelper.getKeyGesture("e", false)!!.swipeUp!!.value)
-    }
-
     @Test fun fourteenKeyPresetIsDigitsThenSymbols() {
         assertEquals(listOf("qw", "er", "ty", "ui", "op", "as", "df", "gh", "jk", "l", "zx", "cv", "bn", "m"),
             FourteenKeySymbols.keys)

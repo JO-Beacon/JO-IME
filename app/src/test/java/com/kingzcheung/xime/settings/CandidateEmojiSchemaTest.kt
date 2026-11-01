@@ -8,17 +8,6 @@ import java.io.File
 class CandidateEmojiSchemaTest {
     private val chinese = File("src/main/assets/rime_chinese")
 
-    @Test fun nineAndFourteenKeySchemasCarryTheEmojiFilterOffByDefault() {
-        for (name in listOf("t9_pinyin", "pinyin_14jian", "double_pinyin_flypy_14jian")) {
-            val text = File(chinese, "$name.schema.yaml").readText()
-            assertTrue(name, text.contains("  - name: emoji\n    reset: 0\n"))
-            // 表情排在繁体转换前面，开着繁体输出时词仍会转成正体，表情原样保留（与雾凇 26 键同序）。
-            val emoji = text.indexOf("    - simplifier@emoji\n")
-            assertTrue(name, emoji >= 0 && emoji < text.indexOf("    - simplifier@traditionalize\n"))
-            assertTrue(name, text.contains("\nemoji:\n  option_name: emoji\n  opencc_config: emoji.json\n"))
-        }
-    }
-
     @Test fun rimeIceKeepsItsEmojiFilterAndTable() {
         val root = File("build/generated/chinese-assets/rime_ice")
         assertTrue(File(root, "rime_ice.schema.yaml").readText().contains("    - simplifier@emoji"))

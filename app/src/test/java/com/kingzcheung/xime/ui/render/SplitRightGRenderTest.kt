@@ -134,12 +134,7 @@ class SplitRightGRenderTest {
             for (tablet in listOf(false, true)) for (floating in listOf(false, true)) {
                 add(Case("rime_ice", tablet = tablet, floating = floating))
                 add(Case("rime_ice", ascii = true, tablet = tablet, floating = floating))
-                add(Case("pinyin_14jian", tablet = tablet, floating = floating))
-                add(Case("cyime_zhuyin", tablet = tablet, floating = floating))
-                add(Case("japanese", tablet = tablet, floating = floating))
                 // 分体开着也不变：14 键拆开的 g/h 不补，注音不能分体。
-                add(Case("pinyin_14jian", split = true, tablet = tablet, floating = floating))
-                add(Case("cyime_zhuyin", split = true, tablet = tablet, floating = floating))
             }
             add(Case("rime_ice", voice = true))
             add(Case("rime_ice", theme = "pure_black"))

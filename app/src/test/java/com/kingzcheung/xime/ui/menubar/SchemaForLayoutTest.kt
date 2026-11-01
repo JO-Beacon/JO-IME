@@ -83,12 +83,10 @@ class SchemaForLayoutTest {
         val all = InputModes.available(entries + japanese + rare, InputModes.defaultModeOrder)
         fun row(language: InputLanguage) =
             InputProfileSelection.layoutRow(all.filter { it.language == language }, all).map { it.id }
-        assertEquals(listOf(InputLayout.QWERTY.id, InputLayout.T9.id, InputLayout.MERGED14.id, "pinyin_cyletix10", "pinyin_colemak"),
+        assertEquals(listOf(InputLayout.QWERTY.id, "pinyin_cyletix10", "pinyin_colemak"),
             row(InputLanguage.CHINESE))
-        assertEquals(listOf(InputLayout.QWERTY.id, InputLayout.KANA.id, "pinyin_cyletix10", "pinyin_colemak"),
-            row(InputLanguage.JAPANESE))
+        assertEquals(emptyList<String>(), row(InputLanguage.JAPANESE))
         assertEquals(listOf(InputLayout.QWERTY.id, "pinyin_cyletix10", "pinyin_colemak"), row(InputLanguage.ENGLISH))
-        assertEquals(row(InputLanguage.JAPANESE), InputProfileSelection.languageLayouts(all, all.first { it.schemaId == "japanese" }).map { it.id })
         // 自己排过的顺序照旧：Colemak 拖到最前，布局栏也在最前。
         val saved = InputModes.available(entries + rare, listOf("pinyin_colemak") + entries.map { it.schemaId })
         assertEquals("pinyin_colemak",

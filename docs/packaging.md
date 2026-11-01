@@ -44,7 +44,7 @@ ABI 由 `splits.abi` 决定，另有 universal 包。完整版用 `-PbundleModel
 
 1. 确认 `app/build.gradle.kts` 的 `versionName` / `versionCode`。
 2. 打 tag 并推送：`git tag v0.1.0 && git push origin v0.1.0`。
-3. `.github/workflows/release.yml` 会构建轻量与完整两版 APK 并上传到该 tag 的 Release。
+3. `.github/workflows/release.yml` 会构建轻量与完整两版 APK，上传到该 tag 的**草稿** Release；确认无误后在 GitHub 上手动发布。
 
 ## 本地脚本
 
