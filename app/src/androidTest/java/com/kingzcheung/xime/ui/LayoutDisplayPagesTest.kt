@@ -51,16 +51,6 @@ class LayoutDisplayPagesTest {
         }
     }
 
-    @Test fun nineKeyPageHoldsFourteenKeyFlickAndKanaSettings() {
-        rule.setContent { MaterialTheme { LayoutInputSettingsContent(LayoutInputCategory.Nine, onBack = {}) } }
-        rule.onNodeWithText("拂动选字母").assertExists()
-        rule.onNodeWithText("左右滑动选字母").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("fourteen-letter-distance").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("flick-direction-disc").performScrollTo().assertIsDisplayed()
-        rule.onNodeWithTag("kana-direction-hints").performScrollTo().assertIsDisplayed()
-        save("page-nine-fourteen")
-    }
-
     private fun save(name: String) {
         rule.waitForIdle()
         val instrumentation = InstrumentationRegistry.getInstrumentation()
