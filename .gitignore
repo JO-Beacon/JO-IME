@@ -75,3 +75,6 @@ app/src/main/assets/rime_chinese/cylm_*
 # Python 字节码缓存、JVM 崩溃日志
 __pycache__/
 hs_err_pid*.log
+
+# 本地构建产物（不提交）
+dist/

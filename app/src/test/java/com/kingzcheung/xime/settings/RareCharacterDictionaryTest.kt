@@ -1,6 +1,5 @@
 package com.kingzcheung.xime.settings
 
-import com.kingzcheung.xime.ui.keyboard.KeyboardInputPreferences
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.File
@@ -9,8 +8,7 @@ import java.io.File
 class RareCharacterDictionaryTest {
     private val root = File("build/generated/chinese-assets/rime_ice")
 
-    @Test fun offByDefaultAndOutsideTheMainDictionary() {
-        assertFalse(KeyboardInputPreferences().rareCharacters)
+    @Test fun outsideTheMainDictionary() {
         // Imported into rime_ice the list cost the nine-key replay +140% dictionary entries per key.
         assertFalse("cyime_rare" in DictionaryLookup.importTables(File(root, "rime_ice.dict.yaml")))
         assertFalse(File(root, "cn_dicts/41448.dict.yaml").exists())

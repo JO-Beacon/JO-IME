@@ -34,9 +34,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
-import com.kingzcheung.xime.settings.ImportManager
 import com.kingzcheung.xime.settings.KeysConfigHelper
-import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.ui.settings.SettingsScreen
 import com.kingzcheung.xime.ui.settings.SettingsNavigationRequest
@@ -48,8 +46,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
 
 class MainActivity : ComponentActivity() {
     private var settingsNavigationRequest by mutableStateOf<SettingsNavigationRequest?>(null)
@@ -57,7 +53,6 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        handleSharedIntent(intent)
         // A plain Settings tap only brings this instance forward. Do not reset its
         // navigation, focused test field or text. Explicit shortcuts still navigate.
         // 插件授权页：冷启动走 initialPluginId，已打开时直接进该插件的详情页。
@@ -139,7 +134,6 @@ class MainActivity : ComponentActivity() {
         
         prewarmRimeEngine()
 
-        handleSharedIntent(intent)
         
         val requestPermission = intent?.getStringExtra("request_permission")
         if (requestPermission == PermissionHelper.PERMISSION_RECORD_AUDIO) {
@@ -267,128 +261,4 @@ class MainActivity : ComponentActivity() {
         }
     }
     
-    private fun handleSharedIntent(intent: Intent?) {
-        if (intent == null) return
-        when (intent.action) {
-            Intent.ACTION_SEND -> {
-                val uri = intent.getParcelableExtra<android.net.Uri>(Intent.EXTRA_STREAM)
-                val mime = intent.type
-                if (uri != null) {
-                    if (mime?.startsWith("image/") == true) {
-                        importThemeImage(uri, mime)
-                    } else {
-                        importSchema(uri)
-                    }
-                }
-            }
-            Intent.ACTION_SEND_MULTIPLE -> {
-                val uris = intent.getParcelableArrayListExtra<android.net.Uri>(Intent.EXTRA_STREAM)
-                if (uris != null) {
-                    for (uri in uris) {
-                        importSchema(uri)
-                    }
-                }
-            }
-        }
-    }
-    
-    private fun importSchema(uri: android.net.Uri) {
-        prewarmScope.launch {
-            when (val result = ImportManager.import(this@MainActivity, uri)) {
-                is ImportManager.ImportResult.Content -> {
-                    launch(Dispatchers.Main) {
-                        // 应用方案更改和同名文件确认都在「已安装的方案」页。
-                        val msg = if (result.pendingPackageId != null) "${result.message}：到「已安装的方案」页确认"
-                            else if (result.installedDirect) result.message.replace("点「应用方案更改」", "到「已安装的方案」点「应用方案更改」")
-                            else result.message
-                        Toast.makeText(this@MainActivity, msg, Toast.LENGTH_LONG).show()
-                    }
-                }
-                is ImportManager.ImportResult.Plugin -> {
-                    com.kingzcheung.xime.plugin.core.runtime.PluginManager.loadEnabledPlugins()
-                    launch(Dispatchers.Main) {
-                        Toast.makeText(
-                            this@MainActivity,
-                            "插件「${result.pluginInfo?.name}」安装成功",
-                            Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-                is ImportManager.ImportResult.Failed -> {
-                    launch(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "导入失败：${result.reason}", Toast.LENGTH_LONG).show()
-                    }
-                }
-                is ImportManager.ImportResult.Unsupported -> {
-                    launch(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "不支持的文件类型", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
-        }
-    }
-
-    /** 分享图片到 Xime：保存到 rime/themes/ 并提示用户如何引用。 */
-    private fun importThemeImage(uri: android.net.Uri, mimeType: String) {
-        prewarmScope.launch {
-            val result = withContext(Dispatchers.IO) {
-                val themesDir = File(SchemaManager.getRimeDir(this@MainActivity), "themes")
-                themesDir.mkdirs()
-                val ext = when (mimeType) {
-                    "image/png" -> "png"
-                    "image/webp" -> "webp"
-                    else -> "jpg"
-                }
-                val name = "custom_${System.currentTimeMillis()}.$ext"
-                val target = File(themesDir, name)
-                try {
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        target.outputStream().use { output -> input.copyTo(output) }
-                    }
-                    name
-                } catch (e: Exception) {
-                    Log.w(TAG, "importThemeImage failed", e)
-                    null
-                }
-            }
-            launch(Dispatchers.Main) {
-                if (result == null) {
-                    Toast.makeText(this@MainActivity, "背景图导入失败", Toast.LENGTH_LONG).show()
-                } else {
-                    copyThemeConfigTemplate(result)
-                    Toast.makeText(
-                        this@MainActivity,
-                        "背景图已导入 rime/themes/$result，配置模板已复制到剪贴板",
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-            }
-        }
-    }
-
-    /** 生成可在 xime.custom.yaml 中使用的主题配置模板并复制到剪贴板。 */
-    private fun copyThemeConfigTemplate(fileName: String) {
-        val schemeId = fileName.substringBeforeLast('.')
-        val template = """
-            color_schemes:
-              $schemeId:
-                name: "自定义背景 ${schemeId.removePrefix("custom_")}"
-                keyboard_background:
-                  type: image
-                  src: "themes/$fileName"
-                  fit: cover
-                  overlay_alpha: 0.15
-                  overlay_alpha_dark: 0.30
-                key_bg_color: 0x8cffffff
-                key_bg_color_dark: 0x66000000
-                key_text_color: 0x232323
-                key_text_color_dark: 0xf2f2f2
-                candidate_text_color: 0x232323
-                candidate_text_color_dark: 0xf2f2f2
-                candidate_selected_text_color: 0xffffff
-                candidate_selected_text_color_dark: 0xffffff
-        """.trimIndent()
-        val clipboard = getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("xime theme", template))
-    }
 }

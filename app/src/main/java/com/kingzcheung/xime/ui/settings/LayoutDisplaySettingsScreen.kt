@@ -543,7 +543,6 @@ private fun LayoutDisplayPage(
             }
 
             if (page == "key_tips") item { KeyTipsSettings() }
-            if (page == "gestures") item { GesturePresetSettings() }
             if (page == "gestures") item {
                 InputExperienceSettings(setOf(InputExperiencePart.SYMBOLS), "角标与长按")
             }
@@ -745,20 +744,3 @@ internal fun HandwritingSettings() {
     InputExperienceSettings(setOf(InputExperiencePart.HANDWRITING), "手写")
 }
 
-/** 「按键与手势」最上面的整套预设：滑动 / 长按 / 滑行输入；单独改过下面某项就显示为自定义（与性能页档位同一写法）。 */
-@Composable
-private fun GesturePresetSettings() {
-    val context = LocalContext.current
-    val settings = com.kingzcheung.xime.ui.keyboard.rememberKeyboardInputPreferences()
-    val current = com.kingzcheung.xime.ui.keyboard.InputGesturePreset.of(settings)
-    SettingsSection(title = "手势预设", content = {
-        com.kingzcheung.xime.ui.keyboard.InputGesturePreset.presets.forEachIndexed { index, preset ->
-            if (index > 0) RowDivider()
-            TierRow(preset.label, preset.summary(settings.reverseSymbolSwipe), current == preset) { preset.applyTo(settings).save(context) }
-        }
-        if (current == com.kingzcheung.xime.ui.keyboard.InputGesturePreset.CUSTOM) {
-            RowDivider()
-            TierRow(current.label, current.summary(settings.reverseSymbolSwipe), true, enabled = false) {}
-        }
-    })
-}

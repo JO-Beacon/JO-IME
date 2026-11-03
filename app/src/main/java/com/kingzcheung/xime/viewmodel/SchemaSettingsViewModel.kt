@@ -1,13 +1,10 @@
 package com.kingzcheung.xime.viewmodel
 
 import android.app.Application
-import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.kingzcheung.xime.plugin.core.runtime.PluginManager
 import com.kingzcheung.xime.rime.RimeConfigHelper
 import com.kingzcheung.xime.rime.RimeEngine
-import com.kingzcheung.xime.settings.ImportManager
 import com.kingzcheung.xime.settings.KeysConfigHelper
 import com.kingzcheung.xime.settings.PersonalDictManager
 import com.kingzcheung.xime.settings.SchemaManager
@@ -15,11 +12,8 @@ import com.kingzcheung.xime.ui.theme.KeyboardThemes
 import com.kingzcheung.xime.settings.SchemaMeta
 import com.kingzcheung.xime.settings.SettingsPreferences
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -40,10 +34,6 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
 
     private val _uiState = MutableStateFlow(SchemaUiState())
     val uiState: StateFlow<SchemaUiState> = _uiState.asStateFlow()
-
-    /** 每次导入完成发一次；方案包有同名文件待确认时带上它，页面接着问用户。 */
-    private val _importCompleted = MutableSharedFlow<ImportManager.ImportResult.Content?>(extraBufferCapacity = 1)
-    val importCompleted: SharedFlow<ImportManager.ImportResult.Content?> = _importCompleted.asSharedFlow()
 
     init {
         refresh()
@@ -131,26 +121,6 @@ class SchemaSettingsViewModel(application: Application) : AndroidViewModel(appli
     private fun rollbackSchemaSelection(previous: String) {
         SettingsPreferences.setCurrentSchema(context, previous)
         _uiState.update { it.copy(currentSchema = previous) }
-    }
-
-    fun importSchemaFile(uri: Uri) {
-        viewModelScope.launch {
-            when (val result = ImportManager.import(context, uri)) {
-                is ImportManager.ImportResult.Content -> {
-                    refresh()
-                    _importCompleted.tryEmit(result)
-                    showToast(result.message)
-                }
-                is ImportManager.ImportResult.Plugin -> {
-                    withContext(Dispatchers.IO) { PluginManager.loadEnabledPlugins() }
-                    refresh()
-                    _importCompleted.tryEmit(null)
-                    showToast("插件「${result.pluginInfo?.name}」安装成功")
-                }
-                is ImportManager.ImportResult.Failed -> showToast("导入失败：${result.reason}")
-                is ImportManager.ImportResult.Unsupported -> showToast("不支持的文件类型")
-            }
-        }
     }
 
     fun deploySchema() {

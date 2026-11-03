@@ -1111,36 +1111,6 @@ object SchemaManager {
         }
     }
 
-    suspend fun importSchemaFile(context: Context, uri: Uri): ImportResult {
-        return withContext(Dispatchers.IO) {
-            val displayName = getFileName(context, uri) ?: return@withContext ImportResult(false)
-
-            val inputStream = when (uri.scheme) {
-                "file" -> java.io.FileInputStream(uri.path!!)
-                else -> context.contentResolver.openInputStream(uri)
-            } ?: return@withContext ImportResult(false)
-
-            saveImportedFile(context, displayName, inputStream)
-        }
-    }
-
-    /**
-     * 从 URI 导入 zip，返回解压后的文件列表。
-     */
-    private fun importZipWithFileList(context: Context, uri: Uri, targetDir: File): List<String> {
-        val tempFile = File.createTempFile("import_", ".zip", targetDir)
-        try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                tempFile.outputStream().use { output -> input.copyTo(output) }
-            } ?: return emptyList()
-            val files = listArchiveTargetFiles(tempFile)
-            importZipFromFile(tempFile, targetDir)
-            return files
-        } finally {
-            tempFile.delete()
-        }
-    }
-
     /**
      * 找到所有 .schema.yaml 文件所在的共同父目录作为基目录。
      * 例如 zip 结构为 rime-ice-main/rime_ice.schema.yaml，
@@ -1536,18 +1506,5 @@ object SchemaManager {
             Log.e(TAG, "Failed to extract tar.gz", e)
             false
         }
-    }
-
-    private fun getFileName(context: Context, uri: Uri): String? {
-        val cursor = context.contentResolver.query(uri, null, null, null, null)
-        cursor?.use {
-            if (it.moveToFirst()) {
-                val nameIndex = it.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                if (nameIndex >= 0) {
-                    return it.getString(nameIndex)
-                }
-            }
-        }
-        return uri.lastPathSegment
     }
 }

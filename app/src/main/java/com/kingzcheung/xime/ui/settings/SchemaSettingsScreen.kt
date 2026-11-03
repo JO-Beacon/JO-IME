@@ -2,8 +2,6 @@ package com.kingzcheung.xime.ui.settings
 
 import android.content.Context
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -31,7 +29,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -70,13 +67,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.kingzcheung.xime.settings.SchemaManager
 import com.kingzcheung.xime.settings.SchemaMeta
-import com.kingzcheung.xime.settings.SettingsPreferences
 import com.kingzcheung.xime.settings.InputLanguage
 import com.kingzcheung.xime.settings.LanguagePreferences
 import com.kingzcheung.xime.settings.InputModes
-import com.kingzcheung.xime.settings.SchemaInfo
-import com.kingzcheung.xime.viewmodel.LocalPackageItem
-import com.kingzcheung.xime.viewmodel.SchemaLocalViewModel
 import com.kingzcheung.xime.viewmodel.SchemaSettingsViewModel
 import com.kingzcheung.xime.ui.menubar.rememberDragOrder
 import com.kingzcheung.xime.ui.menubar.dragOrderItem
@@ -90,119 +83,19 @@ fun SchemaSettingsContent(
     val context = LocalContext.current
     val viewModel: SchemaSettingsViewModel = viewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val localViewModel: SchemaLocalViewModel = viewModel()
-    val localUiState by localViewModel.uiState.collectAsStateWithLifecycle()
     var showExtraSchemas by remember { mutableStateOf(false) }
     var englishEnabled by remember { mutableStateOf(InputLanguage.ENGLISH in LanguagePreferences.enabled(context)) }
     var modeOrderRevision by remember { mutableIntStateOf(0) }
     // F6: 从方案市场/导入返回时自动重扫描，新装方案立即出现
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refresh()
-        localViewModel.loadLocalPackages()
         englishEnabled = InputLanguage.ENGLISH in LanguagePreferences.enabled(context)
         modeOrderRevision++
     }
-    // 导入完成后刷新方案包；有同名文件没装上的，接着问用户（弹「更新共用文件」）。
-    LaunchedEffect(Unit) {
-        viewModel.importCompleted.collect { result ->
-            localViewModel.loadLocalPackages()
-            result?.pendingPackageId?.let { localViewModel.installImported(it, result.pendingName) }
-        }
-    }
-    // 方案包装好或卸掉后，上面的方案列表跟着刷新。
-    LaunchedEffect(localUiState.installingId, localUiState.packages) {
-        if (localUiState.installingId == null) viewModel.refresh()
-    }
-    var showImportWarning by remember { mutableStateOf(false) }
-    var dontShowImportWarning by remember { mutableStateOf(false) }
-    var pendingImportAction by remember { mutableStateOf<() -> Unit>({}) }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
-        for (uri in uris) {
-            viewModel.importSchemaFile(uri)
-        }
-    }
-
-    // 导入前说清楚认哪些文件、导入后去哪里；看过可勾「不再显示」，以后点「导入方案」直接选文件。
-    if (showImportWarning) {
-        AlertDialog(
-            onDismissRequest = {
-                showImportWarning = false
-            },
-            containerColor = MaterialTheme.colorScheme.surface,
-            title = {
-                Text("导入方案", fontWeight = FontWeight.SemiBold)
-            },
-            text = {
-                Column {
-                    Text("可以导入：", style = MaterialTheme.typography.bodyMedium)
-                    Text(
-                        "· Rime 方案压缩包（.zip、.tar.gz），比如从 GitHub 下载的方案仓库\n" +
-                            "· 单个方案或词库文件（.schema.yaml、.dict.yaml）",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "导入后直接安装并打开其中的主方案，出现在「已启用的输入组合」里；点下方「应用方案更改」后就能在键盘上用。" +
-                            "和已有文件同名时会先问你，确认后备份再替换，卸载时恢复。",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "五笔等常用方案在「扩展 › 方案」可以直接获取。也可以在手机的文件管理里把文件「分享」给 JO-IME 导入。",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.clickable { dontShowImportWarning = !dontShowImportWarning }
-                    ) {
-                        Checkbox(checked = dontShowImportWarning, onCheckedChange = { dontShowImportWarning = it })
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("不再显示", style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (dontShowImportWarning) SettingsPreferences.setSchemaImportWarningDismissed(context, true)
-                        showImportWarning = false
-                        pendingImportAction()
-                    }
-                ) { Text("选择文件") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showImportWarning = false }) {
-                    Text("取消")
-                }
-            }
-        )
-    }
-
-    fun requireImportWarning(action: () -> Unit) {
-        if (SettingsPreferences.isSchemaImportWarningDismissed(context)) {
-            action()
-        } else {
-            pendingImportAction = action
-            showImportWarning = true
-        }
-    }
-
     LaunchedEffect(uiState.toastMessage) {
         uiState.toastMessage?.let { message ->
             Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
             viewModel.clearToast()
-        }
-    }
-
-    LaunchedEffect(localUiState.toastMessage) {
-        localUiState.toastMessage?.let { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
-            localViewModel.clearToast()
         }
     }
 
@@ -215,26 +108,6 @@ fun SchemaSettingsContent(
         )
     }
 
-    if (localUiState.conflictPackageId != null) {
-        AlertDialog(
-            onDismissRequest = { localViewModel.cancelConflictInstall() },
-            title = { Text("更新共用文件") },
-            text = {
-                Text("以下 ${localUiState.conflictingFiles.size} 个同名文件将备份并更新：\n${localUiState.conflictingFiles.joinToString("、") { it.fileName }}\n不会卸载其他输入模式；卸载新方案时可恢复原文件。")
-            },
-            confirmButton = {
-                TextButton(onClick = { localViewModel.confirmInstallWithReplace() }) {
-                    Text("备份并更新")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { localViewModel.cancelConflictInstall() }) {
-                    Text("取消")
-                }
-            },
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -242,11 +115,6 @@ fun SchemaSettingsContent(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
-                    }
-                },
-                actions = {
-                    TextButton(onClick = { requireImportWarning { importLauncher.launch(arrayOf("*/*")) } }) {
-                        Text("导入方案", style = MaterialTheme.typography.labelMedium)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -385,22 +253,6 @@ fun SchemaSettingsContent(
                         groupIndex = row,
                         groupSize = extraOff.size,
                     )
-                }
-                // 导入和从「扩展 › 方案」获取的方案包：卸载在这里；同名文件没确认的包留着，可以再装或删。
-                val packages = localUiState.packages.filterNot { it.packageId == "builtin" }
-                if (packages.isNotEmpty()) {
-                    item { SettingsGroupTitle("导入和下载的方案包", Modifier.padding(top = 8.dp)) }
-                    itemsIndexed(packages, key = { _, pkg -> "package:${pkg.packageId}" }) { row, pkg ->
-                        SettingsGroupRow(row, packages.size) {
-                            SchemaPackageRow(
-                                item = pkg,
-                                installing = localUiState.installingId == pkg.packageId,
-                                onInstall = { localViewModel.installPackage(pkg) },
-                                onDelete = { localViewModel.deleteDownloaded(pkg) },
-                                onUninstall = { localViewModel.uninstall(pkg) },
-                            )
-                        }
-                    }
                 }
                 // 直接看、改 Rime 文件只用来排错，放在高级方案后面。
                 item {
@@ -565,30 +417,3 @@ internal fun SchemaToggleItem(
     }
 }
 
-/** 一个方案包一行：名字、状态，右边是卸载，或没装上时的安装和删除。 */
-@Composable
-private fun SchemaPackageRow(
-    item: LocalPackageItem,
-    installing: Boolean,
-    onInstall: () -> Unit,
-    onDelete: () -> Unit,
-    onUninstall: () -> Unit,
-) {
-    val detail = buildString {
-        append(if (item.installed) "已安装" else "未安装")
-        if (item.version.isNotEmpty()) append(" · ${item.version}")
-        if (item.fileCount > 0) append(" · ${item.fileCount} 个文件")
-    }
-    SettingsListRow(item.displayName, detail) {
-        when {
-            installing -> CircularProgressIndicator(modifier = Modifier.padding(end = 12.dp).size(18.dp), strokeWidth = 2.dp)
-            item.installed -> TextButton(onClick = onUninstall) { Text("卸载") }
-            else -> {
-                TextButton(onClick = onInstall) { Text("安装") }
-                IconButton(onClick = onDelete) {
-                    Icon(Icons.Default.Delete, contentDescription = "删除下载文件", tint = MaterialTheme.colorScheme.error)
-                }
-            }
-        }
-    }
-}

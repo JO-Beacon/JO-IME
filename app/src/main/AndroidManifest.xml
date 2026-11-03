@@ -79,14 +79,6 @@
             android:windowSoftInputMode="adjustResize"
             android:exported="true"
             android:theme="@style/Theme.Xime">
-
-            <!-- 接收其他应用分享的 .yaml / .zip 文件 -->
-            <intent-filter>
-                <action android:name="android.intent.action.SEND" />
-                <action android:name="android.intent.action.SEND_MULTIPLE" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <data android:mimeType="*/*" />
-            </intent-filter>
         </activity>
         
 
@@ -373,7 +365,7 @@
         <service
             android:name="com.kingzcheung.xime.service.XimeInputMethodService"
             android:exported="true"
-            android:label="CyIME"
+            android:label="JO-IME"
             android:permission="android.permission.BIND_INPUT_METHOD">
             <intent-filter>
                 <action android:name="android.view.InputMethod" />

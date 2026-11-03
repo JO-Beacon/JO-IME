@@ -126,13 +126,9 @@ internal val SettingsSearchIndex: List<SettingsSearchEntry> = run {
         page("关于 JO-IME", system, SettingsRoutes.About, "版本 开发者 联系 许可 检查更新 最新版本 源代码"),
         // 输入 › 语言与方案
         SettingsSearchEntry("繁体输出", languages, "languages", "繁体 繁體 正体 简繁 简繁切换 简体 台湾 转换"),
-        SettingsSearchEntry("生僻字", languages, "languages", "生僻字 罕用字 缺字 打不出 大字表 扩展字 字库 冷僻字"),
-        SettingsSearchEntry("时间日期候选", languages, "languages", "时间 日期 星期 今天 几点 当前时间 当前日期 年月日 联想 候选"),
         SettingsSearchEntry("选词后自动加空格", languages, "languages", "英文 英语 空格 自动空格 自动加空格 补全 标点 iOS 苹果 西班牙语"),
         SettingsSearchEntry("标点后自动加空格", languages, "languages", "英文 英语 空格 自动空格 自动加空格 标点 逗号 句号 问号 英文标点 标点空格 西班牙语"),
-        SettingsSearchEntry("候选里显示表情", languages, "languages", "表情 emoji 联想表情 候选表情 开心 爱心 笑脸"),
-        SettingsSearchEntry("打符号名出符号", languages, "languages", "符号 符号名 加号 减号 等号 问号 括号 引号 百分号 标点 打字出符号 数学符号"),
-        page("已安装的方案", languages, SettingsRoutes.Schema, "下载 导入 启停 方案 部署 输入资源 排序 方案资源 启用14键 中文14键"),
+        page("已安装的方案", languages, SettingsRoutes.Schema, "启停 方案 部署 输入资源 排序 方案资源 启用14键 中文14键"),
         // 输入 › 键盘布局
         page("26 键", layouts, qwerty, "26键 全键盘 全拼 qwerty 邻键纠错 滑行输入"),
         SettingsSearchEntry("自定义布局", layouts, SEARCH_TARGET_CUSTOM_LAYOUT, "自定义按键布局 布局管理 新建布局 复制 编辑按键排列", anchor = null),
@@ -159,7 +155,6 @@ internal val SettingsSearchIndex: List<SettingsSearchEntry> = run {
         SettingsSearchEntry("逗号键分词", qwertyPath, qwerty, "分词 分词键 隔音符 分隔符 单引号 撇号 音节 西安 xian 逗号"),
         SettingsSearchEntry("Shift 键分词", qwertyPath, qwerty, "分词 分词键 隔音符 分隔符 Shift 大小写 大写键 音节 西安 xian"),
         // 输入 › 按键与手势
-        SettingsSearchEntry("手势预设", gestures, gesturePage, "预设 滑动 长按 滑行 英文滑行 中文滑行 一键 整套 手势 自定义"),
         SettingsSearchEntry("Z X C V 角标做撤销、剪切、复制、粘贴", gestures, gesturePage, "zxcv 撤销 剪切 复制 粘贴 下滑 快捷键 Ctrl 百度"),
         SettingsSearchEntry("长按语言键弹出列表", gestures, gesturePage, "语言键 切换语言 长按 时长 语言列表 秒", section = "时长与距离"),
         SettingsSearchEntry("符号键松手打开符号的时限", gestures, gesturePage, "符号键 !@# Ctrl 控制键 快捷键 复制 粘贴 剪切 撤销 全选 长按 时长 时限 过期 秒", section = "时长与距离"),

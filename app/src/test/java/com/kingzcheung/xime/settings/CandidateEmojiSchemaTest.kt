@@ -4,7 +4,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
 
-/** 「候选里显示表情」（默认关）：26 键雾凇方案自带表情过滤，九键、14 键方案补上同一个过滤和开关（GitHub #2）。 */
+/** 「候选里显示表情」（JO-IME 固定开启）：26 键雾凇方案自带表情过滤，九键、14 键方案补上同一个过滤和开关（GitHub #2）。 */
 class CandidateEmojiSchemaTest {
     private val chinese = File("src/main/assets/rime_chinese")
 

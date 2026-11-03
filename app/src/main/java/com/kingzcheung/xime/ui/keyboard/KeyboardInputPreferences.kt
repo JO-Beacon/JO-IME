@@ -109,20 +109,12 @@ data class KeyboardInputPreferences(
     val doublePinyinSemicolonOnShift: Boolean = false,
     /** 中文全拼 26 键中英混输（nihaohello → 你好hello），默认关；见 app/data/cyime_mixed_input.lua。 */
     val mixedInput: Boolean = false,
-    /** 中文全拼 26 键和九键补出生僻字（瀺 chan、槻 gui），默认关；见 app/data/cyime_rare_chars.lua。 */
-    val rareCharacters: Boolean = false,
     /** 中文候选和上屏用台湾正体（台灣、計畫），默认关；Rime 选项 traditionalization，转换表见 assets/rime_chinese/opencc。 */
     val traditionalOutput: Boolean = false,
-    /** 打出“时间、日期、星期”时紧跟着给当前时间和日期（15:35、2026-10-31），默认关（更新不改原有习惯，要用在 语言与方案 › 中文输出 打开）；Rime 滤镜 cyime_datetime（librime-t9 datetime_filter.h）。 */
-    val datetimeCandidates: Boolean = false,
     /** 英文选词后自动加空格（别人请求，默认关）；见 service/EnglishAutoSpace.kt。 */
     val englishAutoSpace: Boolean = false,
     /** 英文键盘打 , . ? ! : ; 后自动补一个空格（别人请求，默认关）；见 service/EnglishAutoSpace.kt。 */
     val englishPunctuationSpace: Boolean = false,
-    /** 中文候选在词后面多出对应表情（开心 😄），默认关；Rime 选项 emoji，表情表 opencc/emoji.json（雾凇）。 */
-    val candidateEmoji: Boolean = false,
-    /** 打符号名出符号（加号 +、问号 ？ ?），别人请求，默认关；Rime 选项 cyime_symbol_names，符号表 assets/rime_chinese/opencc/cyime_symbols.txt。 */
-    val symbolNames: Boolean = false,
     val frostedGlass: FrostedGlassConfig = FrostedGlassConfig(),
     val symbolInputMode: SymbolInputMode = SymbolInputMode.SWIPE_UP,
     val reverseSymbolSwipe: Boolean = false,
@@ -181,8 +173,6 @@ data class KeyboardInputPreferences(
     companion object {
         /** 中英混输开关；输入法每次按字母键读它（ImeKeyRouter），改了下一键就生效。 */
         const val MIXED_INPUT_KEY = "mixed_input"
-        /** 生僻字开关；同繁体输出，输入法按字母、数字键前读它（ImeKeyRouter）。 */
-        const val RARE_CHARACTERS_KEY = "rare_characters"
         /** Z X C V 上角标改成撤销/剪切/复制/粘贴，默认关。 */
         const val ZXCV_EDIT_SHORTCUTS_KEY = "zxcv_edit_shortcuts"
         /** 繁体输出开关；同中英混输，输入法按键前读它（ImeKeyRouter）。 */
@@ -194,8 +184,6 @@ data class KeyboardInputPreferences(
         /** 字母键帽显示大写。 */
         const val UPPERCASE_KEY_LABELS_KEY = "uppercase_key_labels"
         const val CHINESE_UPPERCASE_KEY_LABELS_KEY = "chinese_uppercase_key_labels"
-        /** 时间日期候选开关；同中英混输，输入法按键前读它（ImeKeyRouter），关掉时设 Rime 选项 _cyime_datetime_off。 */
-        const val DATETIME_CANDIDATES_KEY = "datetime_candidates"
         /** 中文滑行输入；新键，旧版本没写过，读不到就是关。 */
         const val CHINESE_GLIDE_KEY = "glide_typing_chinese"
         /** 双拼键位提示开关；设置在「双拼方案」页。 */
@@ -208,10 +196,6 @@ data class KeyboardInputPreferences(
         const val ENGLISH_AUTO_SPACE_KEY = "english_auto_space"
         /** 英文标点后自动加空格开关；输入法打标点时读它，改了下一个标点就生效。新键，读不到就是关。 */
         const val ENGLISH_PUNCTUATION_SPACE_KEY = "english_punctuation_space"
-        /** 候选里显示表情开关；同繁体输出，输入法按键前读它（ImeKeyRouter）。 */
-        const val CANDIDATE_EMOJI_KEY = "candidate_emoji"
-        /** 打符号名出符号开关；同表情，输入法按键前读它（ImeKeyRouter），写 Rime 选项 cyime_symbol_names。新键，读不到就是关。 */
-        const val SYMBOL_NAMES_KEY = "symbol_name_candidates"
         /** 底部留白滑动移动光标，见 [bottomLiftCursor]。 */
         const val BOTTOM_LIFT_CURSOR_KEY = "bottom_lift_cursor"
         const val HANDWRITING_RECOGNIZE_EARLY_KEY = "handwriting_recognize_while_writing"
@@ -219,8 +203,8 @@ data class KeyboardInputPreferences(
         /** 正在显示的键盘监听这些键，改了就重新读取；[save] 写入的每个键都必须在内，否则设置页的改动要等输入法重启才生效。 */
         internal val watchedKeys: Set<String> by lazy {
             setOf(KeyEffectPreferences.GLOW, KeyEffectPreferences.ANIMATION, SettingsPreferences.KEY_SHOW_PRESS_BUBBLE,
-                SettingsPreferences.KEY_SPLIT_KEYBOARD, SettingsPreferences.KEY_SPLIT_RIGHT_G, SettingsPreferences.KEY_FILL_KEYBOARD_BLANK, SettingsPreferences.KEY_WIDE_KEYS, SettingsPreferences.KEY_EVEN_MERGED_KEYS, SettingsPreferences.KEY_SPLIT_GAP_PORTRAIT, SettingsPreferences.KEY_SPLIT_GAP_LANDSCAPE, CHINESE_GLIDE_KEY, ENGLISH_AUTO_SPACE_KEY, ENGLISH_PUNCTUATION_SPACE_KEY, SYMBOL_NAMES_KEY,
-                "space_hold_action", "cursor_gesture_mode", "cursor_hold_seconds", "neighbor_correction", com.kingzcheung.xime.settings.SpellingPatches.DOUBLE_PINYIN_CORRECTION_KEY, MIXED_INPUT_KEY, RARE_CHARACTERS_KEY, TRADITIONAL_OUTPUT_KEY, CANDIDATE_EMOJI_KEY, DATETIME_CANDIDATES_KEY, "symbol_input_mode", "cursor_step_dp", "cursor_swipe_lines", "cursor_step_haptic", "cursor_step_sound", "key_text_scale", UPPERCASE_KEY_LABELS_KEY, CHINESE_UPPERCASE_KEY_LABELS_KEY, "fixed_symbols",
+                SettingsPreferences.KEY_SPLIT_KEYBOARD, SettingsPreferences.KEY_SPLIT_RIGHT_G, SettingsPreferences.KEY_FILL_KEYBOARD_BLANK, SettingsPreferences.KEY_WIDE_KEYS, SettingsPreferences.KEY_EVEN_MERGED_KEYS, SettingsPreferences.KEY_SPLIT_GAP_PORTRAIT, SettingsPreferences.KEY_SPLIT_GAP_LANDSCAPE, CHINESE_GLIDE_KEY, ENGLISH_AUTO_SPACE_KEY, ENGLISH_PUNCTUATION_SPACE_KEY,
+                "space_hold_action", "cursor_gesture_mode", "cursor_hold_seconds", "neighbor_correction", com.kingzcheung.xime.settings.SpellingPatches.DOUBLE_PINYIN_CORRECTION_KEY, MIXED_INPUT_KEY, TRADITIONAL_OUTPUT_KEY, "symbol_input_mode", "cursor_step_dp", "cursor_swipe_lines", "cursor_step_haptic", "cursor_step_sound", "key_text_scale", UPPERCASE_KEY_LABELS_KEY, CHINESE_UPPERCASE_KEY_LABELS_KEY, "fixed_symbols",
                 "fourteen_letter_swipe", "fourteen_letter_swipe_dp", "reverse_symbol_swipe", CLEAR_ALL_WHILE_COMPOSING_KEY, CLEAR_BEFORE_CURSOR_ONLY_KEY, ZXCV_EDIT_SHORTCUTS_KEY, "syllable_split_key", "shift_syllable_split", "kana_direction_hints", "flick_direction_disc", "flick_direction_disc_v2",
                 "glide_typing", "glide_typing_v2", "letter_long_press_menu", "t9_flick_letters", "language_key_hold_seconds", "language_key_hold_seconds_v2", "symbol_key_hold_seconds", "t9_candidate_drag_percent",
                 "qwerty_stagger_mode", "qwerty_stagger_custom", "qwerty_comma_key", "qwerty_period_key", "qwerty_period_key_v2",
@@ -288,13 +272,9 @@ data class KeyboardInputPreferences(
                 swipeDownHints = SettingsPreferences.isSwipeDownHintsEnabled(context),
                 doublePinyinSemicolonOnShift = prefs.getBoolean(DOUBLE_PINYIN_SEMICOLON_ON_SHIFT_KEY, false),
                 mixedInput = prefs.getBoolean(MIXED_INPUT_KEY, false),
-                rareCharacters = prefs.getBoolean(RARE_CHARACTERS_KEY, false),
                 traditionalOutput = prefs.getBoolean(TRADITIONAL_OUTPUT_KEY, false),
-                datetimeCandidates = prefs.getBoolean(DATETIME_CANDIDATES_KEY, false),
                 englishAutoSpace = prefs.getBoolean(ENGLISH_AUTO_SPACE_KEY, false),
                 englishPunctuationSpace = prefs.getBoolean(ENGLISH_PUNCTUATION_SPACE_KEY, false),
-                candidateEmoji = prefs.getBoolean(CANDIDATE_EMOJI_KEY, false),
-                symbolNames = prefs.getBoolean(SYMBOL_NAMES_KEY, false),
                 fourteenLetterSwipe = prefs.getBoolean("fourteen_letter_swipe", true),
                 fourteenLetterSwipeDp = normalizeLetterSwipeDistance(prefs.getFloat("fourteen_letter_swipe_dp", 24f)),
                 // JO-IME：角标固定滑动输入
@@ -339,13 +319,9 @@ data class KeyboardInputPreferences(
             .putBoolean(DOUBLE_PINYIN_KEY_HINTS_WITH_CORNERS_KEY, doublePinyinKeyHintsWithCorners)
             .putBoolean(DOUBLE_PINYIN_SEMICOLON_ON_SHIFT_KEY, doublePinyinSemicolonOnShift)
             .putBoolean(MIXED_INPUT_KEY, mixedInput)
-            .putBoolean(RARE_CHARACTERS_KEY, rareCharacters)
             .putBoolean(TRADITIONAL_OUTPUT_KEY, traditionalOutput)
-            .putBoolean(DATETIME_CANDIDATES_KEY, datetimeCandidates)
             .putBoolean(ENGLISH_AUTO_SPACE_KEY, englishAutoSpace)
             .putBoolean(ENGLISH_PUNCTUATION_SPACE_KEY, englishPunctuationSpace)
-            .putBoolean(CANDIDATE_EMOJI_KEY, candidateEmoji)
-            .putBoolean(SYMBOL_NAMES_KEY, symbolNames)
             .putBoolean("fourteen_letter_swipe", fourteenLetterSwipe)
             .putFloat("fourteen_letter_swipe_dp", normalizeLetterSwipeDistance(fourteenLetterSwipeDp))
             .putString("symbol_input_mode", symbolInputMode.name)

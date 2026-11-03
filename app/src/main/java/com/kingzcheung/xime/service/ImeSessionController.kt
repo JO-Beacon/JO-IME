@@ -507,10 +507,11 @@ internal class ImeSessionController(private val service: XimeInputMethodService)
             add("cyime_mixed_input" to prefs.getBoolean(KeyboardInputPreferences.MIXED_INPUT_KEY, false))
             add("traditionalization" to traditional)
             if (cangjie) add("simplification" to !traditional)
-            add("_cyime_datetime_off" to !prefs.getBoolean(KeyboardInputPreferences.DATETIME_CANDIDATES_KEY, false))
-            add("emoji" to prefs.getBoolean(KeyboardInputPreferences.CANDIDATE_EMOJI_KEY, false))
-            add("cyime_symbol_names" to prefs.getBoolean(KeyboardInputPreferences.SYMBOL_NAMES_KEY, false))
-            add("cyime_rare_chars" to prefs.getBoolean(KeyboardInputPreferences.RARE_CHARACTERS_KEY, false))
+            // 时间日期候选、候选表情、符号名、生僻字：JO-IME 固定开启，不再提供开关。
+            add("_cyime_datetime_off" to false)
+            add("emoji" to true)
+            add("cyime_symbol_names" to true)
+            add("cyime_rare_chars" to true)
         }
         var changed = false
         for ((name, value) in options) {

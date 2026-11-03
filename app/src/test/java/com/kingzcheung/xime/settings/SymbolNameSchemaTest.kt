@@ -6,7 +6,7 @@ import org.junit.Test
 import java.io.File
 
 /**
- * 「打符号名出符号」（默认关）：打「加号」在词后面多出 +。九键、14 键方案直接带 simplifier@cyime_symbols，
+ * 「打符号名出符号」（JO-IME 固定开启）：打「加号」在词后面多出 +。九键、14 键方案直接带 simplifier@cyime_symbols，
  * 26 键雾凇和双拼由 tasks-chinese.gradle.kts 插入；四种键盘共用 opencc/cyime_symbols.json 一张表。
  */
 class SymbolNameSchemaTest {

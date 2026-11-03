@@ -962,14 +962,6 @@ object SettingsPreferences {
         getPrefs(context).edit().putInt(KEY_KEYBOARD_BOTTOM_PADDING_DP, paddingDp).apply()
     }
 
-    fun isSchemaImportWarningDismissed(context: Context): Boolean {
-        return getPrefs(context).getBoolean(KEY_SCHEMA_IMPORT_WARNING_DISMISSED, false)
-    }
-
-    fun setSchemaImportWarningDismissed(context: Context, dismissed: Boolean) {
-        getPrefs(context).edit().putBoolean(KEY_SCHEMA_IMPORT_WARNING_DISMISSED, dismissed).apply()
-    }
-
     // ── 悬浮键盘设置 ──
 
     private const val KEY_FLOATING_MODE = "floating_mode"

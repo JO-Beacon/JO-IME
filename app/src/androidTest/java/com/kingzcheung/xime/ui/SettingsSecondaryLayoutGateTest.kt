@@ -144,39 +144,6 @@ class SettingsSecondaryLayoutGateTest {
         }
     }
 
-    @Test fun languagePageKeepsLastDragCardReachable() {
-        val app = ApplicationProvider.getApplicationContext<Context>()
-        val namespace = "language-layout-gate-${System.nanoTime()}"
-        val context = object : ContextWrapper(app) {
-            override fun getSharedPreferences(name: String, mode: Int) =
-                app.getSharedPreferences("$namespace-$name", mode)
-        }
-        SettingsPreferences.getPrefsPublic(context).edit()
-            .putStringSet(LanguagePreferences.KEY, setOf("zh", "ja", "en")).commit()
-        InputModes.saveLanguageOrder(context, listOf("zh", "ja", "en"))
-        val viewport = mutableStateOf(viewports.first())
-        rule.setContent {
-            val v = viewport.value
-            CompositionLocalProvider(LocalContext provides context, LocalDensity provides Density(1f, v.font)) {
-                MaterialTheme {
-                    Box(Modifier.requiredSize(v.width.dp, v.height.dp).testTag("language-host")) {
-                        LanguageSettingsContent(onBack = {})
-                    }
-                }
-            }
-        }
-        for (v in viewports) {
-            rule.runOnIdle { viewport.value = v }
-            rule.assertGeometry("language-host", "语言管理顶部 $v")
-            rule.onNode(hasScrollToIndexAction()).performScrollToNode(hasTestTag("language-drag:en"))
-            val card = rule.onNodeWithTag("language-drag:en").assertIsDisplayed()
-            assertInside("language-host", card, "语言管理末项卡片 $v")
-            assertTrue("语言卡片拖动区域高度不足 $v", card.fetchSemanticsNode().size.height >= 71)
-            assertTrue("语言卡片拖动区域宽度不足 $v", card.fetchSemanticsNode().size.width >= v.width - 33)
-            rule.assertGeometry("language-host", "语言管理末项 $v")
-        }
-    }
-
     @Test fun schemeCardsRemainDraggableAndControlsFitNarrowLargeText() {
         val viewport = mutableStateOf(viewports.first())
         var starts = 0

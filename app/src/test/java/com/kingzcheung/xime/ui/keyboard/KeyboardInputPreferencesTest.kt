@@ -114,8 +114,6 @@ class KeyboardInputPreferencesTest {
         val onlyChinese = KeyboardInputPreferences(chineseGlideTyping = true)
         assertEquals("已被「中文滑行输入」锁定", InputGestureLocks.lockFor(onlyChinese,
             InputGestureLock.Option.CURSOR_GESTURE, CursorGestureMode.KEYBOARD)?.message)
-        // 手势预设不管中文滑行：开着它，「滑动」预设照样认得出。
-        assertEquals(InputGesturePreset.SWIPE, InputGesturePreset.of(InputGesturePreset.SWIPE.applyTo(onlyChinese)))
     }
 
     @Test fun `comma and period keys are both on by default and the old saved period default does not turn it off`() {
@@ -128,28 +126,6 @@ class KeyboardInputPreferencesTest {
         // 用户在新版自己关掉后保持关。
         KeyboardInputPreferences.read(context).copy(qwertyPeriodKey = false).save(context)
         assertEquals(false, KeyboardInputPreferences.read(context).qwertyPeriodKey)
-    }
-
-    @Test fun `time and date candidates are off by default and stay on once turned on`() {
-        // 更新不改原有习惯（用户 10-31）：新功能默认关，在 语言与方案 › 中文输出 打开。
-        assertEquals(false, KeyboardInputPreferences().datetimeCandidates)
-        assertEquals(false, KeyboardInputPreferences.read(context).datetimeCandidates)
-        KeyboardInputPreferences.read(context).copy(datetimeCandidates = false).save(context)
-        assertEquals(false, values[KeyboardInputPreferences.DATETIME_CANDIDATES_KEY])
-        assertEquals(false, KeyboardInputPreferences.read(context).datetimeCandidates)
-        KeyboardInputPreferences.read(context).copy(datetimeCandidates = true).save(context)
-        assertEquals(true, KeyboardInputPreferences.read(context).datetimeCandidates)
-    }
-
-    @Test fun `symbol name candidates are off by default and persist`() {
-        // 别人请求的功能默认关，不改原有习惯；在 语言与方案 › 中文输出 打开。
-        assertEquals(false, KeyboardInputPreferences().symbolNames)
-        assertEquals(false, KeyboardInputPreferences.read(context).symbolNames)
-        KeyboardInputPreferences.read(context).copy(symbolNames = true).save(context)
-        assertEquals(true, values[KeyboardInputPreferences.SYMBOL_NAMES_KEY])
-        assertEquals(true, KeyboardInputPreferences.read(context).symbolNames)
-        KeyboardInputPreferences.read(context).copy(symbolNames = false).save(context)
-        assertEquals(false, KeyboardInputPreferences.read(context).symbolNames)
     }
 
     @Test fun `bottom lift cursor is off by default and persists without touching the cursor gesture choice`() {

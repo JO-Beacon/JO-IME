@@ -10,8 +10,10 @@ object LanguagePreferences {
         val prefs = SettingsPreferences.getPrefsPublic(context)
         val stored = prefs.getStringSet(KEY, null)
         // Imported profiles without language metadata remain usable, without pretending to be Chinese.
+        // JO-IME：中文固定启用，不再提供关闭入口。
         return (if (stored == null) setOf(InputLanguage.CHINESE, InputLanguage.ENGLISH)
-        else InputLanguage.entries.filterTo(mutableSetOf()) { it.id in stored } + InputLanguage.ENGLISH) + InputLanguage.UNSPECIFIED
+        else InputLanguage.entries.filterTo(mutableSetOf()) { it.id in stored } + InputLanguage.ENGLISH) +
+            InputLanguage.CHINESE + InputLanguage.UNSPECIFIED
     }
     fun initialize(context: Context) {
         val prefs = SettingsPreferences.getPrefsPublic(context)
